@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "preprocess": "node scripts/preprocess.ts all",
     "test": "vitest",
-    "test:watch": "vitest watch"
+    "test:watch": "vitest watch",
+    "debug:ladder": "tsx scripts/debug_ladder.ts"
   },
   "dependencies": {
     "react": "^19.2.0",
@@ -27,6 +28,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
+    "tsx": "^4.21.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
     "vite": "^7.2.4",
