@@ -5,10 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && npm run preprocess && vite build",
+    "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
-    "preprocess": "uv run scripts/preprocess_words.py"
   },
   "dependencies": {
     "react": "^19.2.0",

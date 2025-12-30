@@ -1,0 +1,405 @@
+#!/usr/bin/env node
+
+import * as fs from "fs";
+import * as path from "path";
+import * as readline from "readline";
+
+type WordLength = 3 | 4;
+
+// Graph representation:
+// graph[wordIndex][pos] = array of neighbor word indices that differ at that pos
+export type LadderGraph = {
+  words: string[];
+  neighbors: number[][][]; // neighbors[i][pos] = number[]
+};
+
+const ROOT = path.resolve(__dirname, "..");
+const RAW_DIR = path.join(ROOT, "data", "raw");
+const PROCESSED_DIR = path.join(ROOT, "data", "processed");
+const PUBLIC_DIR = path.join(ROOT, "public", "data");
+
+// Adjust if/when you add more lengths
+const WORD_LENGTHS: WordLength[] = [3, 4];
+
+// Kaggle CSV: "word,count"
+const FREQ_CSV_PATH = path.join(RAW_DIR, "wordfreq.csv");
+
+// Minimum frequency count threshold for "common" words.
+// Totally arbitrary starting point — tune this by experimenting.
+const MIN_FREQUENCY_COUNT_DEFAULT = 10_000;
+
+// ----------------------------------------------------------------------------
+// Basic file utilities
+// ----------------------------------------------------------------------------
+
+function ensureDir(dir: string): void {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+}
+
+function readWordListFile(filePath: string): string[] {
+  if (!fs.existsSync(filePath)) return [];
+  const text = fs.readFileSync(filePath, "utf8");
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim().toLowerCase())
+    .filter((line) => line.length > 0 && !line.startsWith("#"));
+}
+
+function writeWordListFile(filePath: string, words: string[]): void {
+  ensureDir(path.dirname(filePath));
+  const uniqueSorted = Array.from(new Set(words)).sort();
+  fs.writeFileSync(filePath, uniqueSorted.join("\n") + "\n", "utf8");
+}
+
+function writeJsonFile(filePath: string, data: unknown): void {
+  ensureDir(path.dirname(filePath));
+  fs.writeFileSync(filePath, JSON.stringify(data), "utf8");
+}
+
+// ----------------------------------------------------------------------------
+// Frequency loading (Kaggle word,count CSV)
+// ----------------------------------------------------------------------------
+
+type FrequencyMap = Map<string, number>;
+
+async function loadFrequencyMap(
+  csvPath: string,
+  restrictTo?: Set<string>,
+): Promise<FrequencyMap> {
+  const freq = new Map<string, number>();
+
+  if (!fs.existsSync(csvPath)) {
+    console.warn(
+      `[freq] CSV not found at ${csvPath}. All words will be treated as uncommon unless whitelisted.`,
+    );
+    return freq;
+  }
+
+  const rl = readline.createInterface({
+    input: fs.createReadStream(csvPath),
+    crlfDelay: Infinity,
+  });
+
+  let isFirstLine = true;
+
+  for await (const line of rl) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // Skip header if present
+    if (isFirstLine && /word/i.test(trimmed) && /count/i.test(trimmed)) {
+      isFirstLine = false;
+      continue;
+    }
+    isFirstLine = false;
+
+    const parts = trimmed.split(",");
+    if (parts.length < 2) continue;
+
+    const word = parts[0].toLowerCase();
+    const countStr = parts[1].trim();
+    const count = Number.parseInt(countStr, 10);
+    if (!Number.isFinite(count)) continue;
+
+    if (restrictTo && !restrictTo.has(word)) {
+      continue;
+    }
+
+    freq.set(word, count);
+  }
+
+  console.log(`[freq] Loaded ${freq.size} entries from ${csvPath}`);
+  return freq;
+}
+
+// ----------------------------------------------------------------------------
+// Filters
+// ----------------------------------------------------------------------------
+
+interface FilterContext {
+  length: WordLength;
+  blacklist: Set<string>;
+  whitelist: Set<string>;
+  freqMap: FrequencyMap;
+  minCount: number;
+}
+
+/**
+ * Modular "is common" function. Swap this out if you change frequency source.
+ */
+function isCommonWord(word: string, ctx: FilterContext): boolean {
+  // Length and alpha safety
+  if (word.length !== ctx.length) return false;
+  if (!/^[a-z]+$/.test(word)) return false;
+
+  // Blacklist overrides everything
+  if (ctx.blacklist.has(word)) return false;
+
+  // Whitelist overrides frequency
+  if (ctx.whitelist.has(word)) return true;
+
+  // Frequency check (default behavior)
+  const count = ctx.freqMap.get(word) ?? 0;
+  if (count < ctx.minCount) return false;
+
+  return true;
+}
+
+/**
+ * Apply all filters to raw words and return the "common" list.
+ */
+function filterCommonWords(rawWords: string[], ctx: FilterContext): string[] {
+  const result: string[] = [];
+  for (const w of rawWords) {
+    if (isCommonWord(w, ctx)) {
+      result.push(w);
+    }
+  }
+  return result;
+}
+
+// ----------------------------------------------------------------------------
+// Common word lists (Step 1)
+// ----------------------------------------------------------------------------
+
+async function buildCommonLists(
+  minFrequencyCount: number,
+): Promise<Record<WordLength, string[]>> {
+  const commonByLen: Partial<Record<WordLength, string[]>> = {};
+
+  // Load raw Scrabble words + blacklists/whitelists.
+  const rawByLen: Record<WordLength, string[]> = {} as any;
+  const blacklistByLen: Record<WordLength, Set<string>> = {} as any;
+  const whitelistByLen: Record<WordLength, Set<string>> = {} as any;
+
+  const allCandidates = new Set<string>();
+
+  for (const len of WORD_LENGTHS) {
+    const scrabblePath = path.join(RAW_DIR, `scrabble_${len}.txt`);
+    const blacklistPath = path.join(RAW_DIR, `blacklist_${len}.txt`);
+    const whitelistPath = path.join(RAW_DIR, `whitelist_${len}.txt`);
+
+    const rawWords = readWordListFile(scrabblePath);
+    const blacklist = new Set(readWordListFile(blacklistPath));
+    const whitelist = new Set(readWordListFile(whitelistPath));
+
+    rawByLen[len] = rawWords;
+    blacklistByLen[len] = blacklist;
+    whitelistByLen[len] = whitelist;
+
+    for (const w of rawWords) {
+      allCandidates.add(w);
+    }
+
+    console.log(
+      `[raw] len=${len} scrabble=${rawWords.length} blacklist=${blacklist.size} whitelist=${whitelist.size}`,
+    );
+  }
+
+  // Load frequency data, restricted to only words we care about
+  const freqMap = await loadFrequencyMap(FREQ_CSV_PATH, allCandidates);
+
+  for (const len of WORD_LENGTHS) {
+    const ctx: FilterContext = {
+      length: len,
+      blacklist: blacklistByLen[len],
+      whitelist: whitelistByLen[len],
+      freqMap,
+      minCount: minFrequencyCount,
+    };
+
+    const commonWords = filterCommonWords(rawByLen[len], ctx);
+    commonByLen[len] = commonWords;
+
+    // Debug TXT
+    const processedTxt = path.join(PROCESSED_DIR, `common_${len}.txt`);
+    writeWordListFile(processedTxt, commonWords);
+
+    // JSON list for runtime (if you want raw list separate)
+    const wordsJson = path.join(PUBLIC_DIR, `words_${len}.json`);
+    writeJsonFile(wordsJson, commonWords);
+
+    console.log(
+      `[common] len=${len} -> common=${commonWords.length} (written ${processedTxt} & ${wordsJson})`,
+    );
+  }
+
+  return commonByLen as Record<WordLength, string[]>;
+}
+
+// ----------------------------------------------------------------------------
+// Graph building (Step 2)
+// ----------------------------------------------------------------------------
+
+function buildWildcardMap(words: string[]): Map<string, number[]> {
+  const wildcardMap = new Map<string, number[]>();
+
+  words.forEach((word, index) => {
+    const chars = word.split("");
+    for (let pos = 0; pos < chars.length; pos++) {
+      const original = chars[pos];
+      chars[pos] = "*";
+      const pattern = chars.join("");
+      chars[pos] = original;
+
+      let arr = wildcardMap.get(pattern);
+      if (!arr) {
+        arr = [];
+        wildcardMap.set(pattern, arr);
+      }
+      arr.push(index);
+    }
+  });
+
+  return wildcardMap;
+}
+
+/**
+ * Build graph: neighbors[wordIndex][pos] = indices of neighbors differing at that pos.
+ */
+function buildGraphForLength(words: string[]): LadderGraph {
+  const length = words[0]?.length ?? 0;
+  const wildcardMap = buildWildcardMap(words);
+
+  const neighbors: number[][][] = [];
+
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i];
+    const chars = word.split("");
+    const neighborsByPos: number[][] = Array.from(
+      { length },
+      () => [] as number[],
+    );
+
+    for (let pos = 0; pos < length; pos++) {
+      const original = chars[pos];
+      chars[pos] = "*";
+      const pattern = chars.join("");
+      chars[pos] = original;
+
+      const indices = wildcardMap.get(pattern);
+      if (!indices) continue;
+
+      for (const j of indices) {
+        if (j === i) continue;
+        neighborsByPos[pos].push(j);
+      }
+    }
+
+    neighbors.push(neighborsByPos);
+  }
+
+  return { words, neighbors };
+}
+
+function loadCommonFromProcessed(len: WordLength): string[] {
+  const processedTxt = path.join(PROCESSED_DIR, `common_${len}.txt`);
+  const words = readWordListFile(processedTxt);
+  if (words.length === 0) {
+    console.warn(
+      `[graph] No common_${len}.txt found or file empty at ${processedTxt}`,
+    );
+  }
+  return words;
+}
+
+function buildGraphs(
+  commonByLen?: Partial<Record<WordLength, string[]>>,
+): void {
+  for (const len of WORD_LENGTHS) {
+    const words =
+      commonByLen?.[len] && commonByLen[len]!.length > 0
+        ? commonByLen[len]!
+        : loadCommonFromProcessed(len);
+
+    if (words.length === 0) {
+      console.warn(`[graph] Skipping len=${len} (no common words).`);
+      continue;
+    }
+
+    const graph = buildGraphForLength(words);
+    const graphPath = path.join(PUBLIC_DIR, `graph_${len}.json`);
+    writeJsonFile(graphPath, graph);
+
+    // Stats
+    let edgeCount = 0;
+    for (const byPos of graph.neighbors) {
+      for (const arr of byPos) {
+        edgeCount += arr.length;
+      }
+    }
+
+    console.log(
+      `[graph] len=${len} nodes=${graph.words.length} edges=${edgeCount} (written ${graphPath})`,
+    );
+  }
+}
+
+// ----------------------------------------------------------------------------
+// CLI
+// ----------------------------------------------------------------------------
+
+interface CliOptions {
+  step: "all" | "common" | "graphs";
+  minFrequencyCount: number;
+}
+
+function parseCliArgs(argv: string[]): CliOptions {
+  // argv: [node, script, ...]
+  const args = argv.slice(2);
+  let step: CliOptions["step"] = "all";
+  let minFrequencyCount = MIN_FREQUENCY_COUNT_DEFAULT;
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+
+    if (arg === "all" || arg === "common" || arg === "graphs") {
+      step = arg;
+      continue;
+    }
+
+    if (arg === "--min-count" && i + 1 < args.length) {
+      const val = Number.parseInt(args[i + 1], 10);
+      if (Number.isFinite(val)) {
+        minFrequencyCount = val;
+      }
+      i++;
+      continue;
+    }
+
+    // Unknown args just ignored for now
+  }
+
+  return { step, minFrequencyCount };
+}
+
+// ----------------------------------------------------------------------------
+// main
+// ----------------------------------------------------------------------------
+
+async function main(): Promise<void> {
+  ensureDir(PROCESSED_DIR);
+  ensureDir(PUBLIC_DIR);
+
+  const { step, minFrequencyCount } = parseCliArgs(process.argv);
+  console.log(
+    `[preprocess] step=${step} minFrequencyCount=${minFrequencyCount}`,
+  );
+
+  let commonByLen: Record<WordLength, string[]> | undefined;
+
+  if (step === "all" || step === "common") {
+    commonByLen = await buildCommonLists(minFrequencyCount);
+  }
+
+  if (step === "all" || step === "graphs") {
+    buildGraphs(commonByLen);
+  }
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
