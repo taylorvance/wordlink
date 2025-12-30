@@ -1,4 +1,5 @@
-data/processed/*
+data/processed/
+public/data/
 
 # Logs
 logs
