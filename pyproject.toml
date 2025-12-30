@@ -1,0 +1,12 @@
+[project]
+name = "wordlink"
+version = "0.1.0"
+description = "Word ladder game"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "wordfreq>=3.1.1",
+]
