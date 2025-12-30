@@ -3,6 +3,10 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as readline from "readline";
+import { fileURLToPath, pathToFileURL } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 type WordLength = 3 | 4;
 
@@ -22,7 +26,10 @@ const PUBLIC_DIR = path.join(ROOT, "public", "data");
 const WORD_LENGTHS: WordLength[] = [3, 4];
 
 // Kaggle CSV: "word,count"
-const FREQ_CSV_PATH = path.join(RAW_DIR, "wordfreq.csv");
+function getFreqCsvPath(len: WordLength): string {
+  // e.g. data/raw/freq_3.csv, data/raw/freq_4.csv
+  return path.join(RAW_DIR, `freq_${len}.csv`);
+}
 
 // Minimum frequency count threshold for "common" words.
 // Totally arbitrary starting point — tune this by experimenting.
@@ -64,10 +71,7 @@ function writeJsonFile(filePath: string, data: unknown): void {
 
 type FrequencyMap = Map<string, number>;
 
-async function loadFrequencyMap(
-  csvPath: string,
-  restrictTo?: Set<string>,
-): Promise<FrequencyMap> {
+async function loadFrequencyMap(csvPath: string): Promise<FrequencyMap> {
   const freq = new Map<string, number>();
 
   if (!fs.existsSync(csvPath)) {
@@ -103,10 +107,6 @@ async function loadFrequencyMap(
     const count = Number.parseInt(countStr, 10);
     if (!Number.isFinite(count)) continue;
 
-    if (restrictTo && !restrictTo.has(word)) {
-      continue;
-    }
-
     freq.set(word, count);
   }
 
@@ -129,7 +129,7 @@ interface FilterContext {
 /**
  * Modular "is common" function. Swap this out if you change frequency source.
  */
-function isCommonWord(word: string, ctx: FilterContext): boolean {
+export function isCommonWord(word: string, ctx: FilterContext): boolean {
   // Length and alpha safety
   if (word.length !== ctx.length) return false;
   if (!/^[a-z]+$/.test(word)) return false;
@@ -150,7 +150,10 @@ function isCommonWord(word: string, ctx: FilterContext): boolean {
 /**
  * Apply all filters to raw words and return the "common" list.
  */
-function filterCommonWords(rawWords: string[], ctx: FilterContext): string[] {
+export function filterCommonWords(
+  rawWords: string[],
+  ctx: FilterContext,
+): string[] {
   const result: string[] = [];
   for (const w of rawWords) {
     if (isCommonWord(w, ctx)) {
@@ -169,55 +172,35 @@ async function buildCommonLists(
 ): Promise<Record<WordLength, string[]>> {
   const commonByLen: Partial<Record<WordLength, string[]>> = {};
 
-  // Load raw Scrabble words + blacklists/whitelists.
-  const rawByLen: Record<WordLength, string[]> = {} as any;
-  const blacklistByLen: Record<WordLength, Set<string>> = {} as any;
-  const whitelistByLen: Record<WordLength, Set<string>> = {} as any;
-
-  const allCandidates = new Set<string>();
-
   for (const len of WORD_LENGTHS) {
     const scrabblePath = path.join(RAW_DIR, `scrabble_${len}.txt`);
     const blacklistPath = path.join(RAW_DIR, `blacklist_${len}.txt`);
     const whitelistPath = path.join(RAW_DIR, `whitelist_${len}.txt`);
+    const freqCsvPath = getFreqCsvPath(len);
 
     const rawWords = readWordListFile(scrabblePath);
     const blacklist = new Set(readWordListFile(blacklistPath));
     const whitelist = new Set(readWordListFile(whitelistPath));
-
-    rawByLen[len] = rawWords;
-    blacklistByLen[len] = blacklist;
-    whitelistByLen[len] = whitelist;
-
-    for (const w of rawWords) {
-      allCandidates.add(w);
-    }
+    const freqMap = await loadFrequencyMap(freqCsvPath);
 
     console.log(
       `[raw] len=${len} scrabble=${rawWords.length} blacklist=${blacklist.size} whitelist=${whitelist.size}`,
     );
-  }
 
-  // Load frequency data, restricted to only words we care about
-  const freqMap = await loadFrequencyMap(FREQ_CSV_PATH, allCandidates);
-
-  for (const len of WORD_LENGTHS) {
     const ctx: FilterContext = {
       length: len,
-      blacklist: blacklistByLen[len],
-      whitelist: whitelistByLen[len],
+      blacklist,
+      whitelist,
       freqMap,
       minCount: minFrequencyCount,
     };
 
-    const commonWords = filterCommonWords(rawByLen[len], ctx);
+    const commonWords = filterCommonWords(rawWords, ctx);
     commonByLen[len] = commonWords;
 
-    // Debug TXT
     const processedTxt = path.join(PROCESSED_DIR, `common_${len}.txt`);
     writeWordListFile(processedTxt, commonWords);
 
-    // JSON list for runtime (if you want raw list separate)
     const wordsJson = path.join(PUBLIC_DIR, `words_${len}.json`);
     writeJsonFile(wordsJson, commonWords);
 
@@ -233,7 +216,7 @@ async function buildCommonLists(
 // Graph building (Step 2)
 // ----------------------------------------------------------------------------
 
-function buildWildcardMap(words: string[]): Map<string, number[]> {
+export function buildWildcardMap(words: string[]): Map<string, number[]> {
   const wildcardMap = new Map<string, number[]>();
 
   words.forEach((word, index) => {
@@ -259,7 +242,7 @@ function buildWildcardMap(words: string[]): Map<string, number[]> {
 /**
  * Build graph: neighbors[wordIndex][pos] = indices of neighbors differing at that pos.
  */
-function buildGraphForLength(words: string[]): LadderGraph {
+export function buildGraphForLength(words: string[]): LadderGraph {
   const length = words[0]?.length ?? 0;
   const wildcardMap = buildWildcardMap(words);
 
@@ -399,7 +382,9 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
