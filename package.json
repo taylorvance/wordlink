@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:host": "vite --host 0.0.0.0",
     "build": "tsc -b && npm run preprocess && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
