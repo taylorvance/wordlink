@@ -63,7 +63,7 @@ function App() {
       setPuzzle(null)
 
       try {
-        const response = await fetch(`/data/graph_${wordLength}.json`)
+        const response = await fetch(`${import.meta.env.BASE_URL}data/graph_${wordLength}.json`)
         if (!response.ok) {
           throw new Error(
             `Failed to load graph_${wordLength}.json. Run npm run preprocess first.`,
