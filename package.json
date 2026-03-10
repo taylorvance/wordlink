@@ -12,7 +12,8 @@
     "preprocess": "node scripts/preprocess.ts all",
     "test": "vitest",
     "test:watch": "vitest watch",
-    "debug:ladder": "tsx scripts/debug_ladder.ts"
+    "debug:ladder": "tsx scripts/debug_ladder.ts",
+    "analyze:common": "tsx scripts/analyze_common.ts"
   },
   "dependencies": {
     "react": "^19.2.0",

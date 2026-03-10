@@ -32,8 +32,11 @@ function getFreqCsvPath(len: WordLength): string {
 }
 
 // Minimum frequency count threshold for "common" words.
-// Totally arbitrary starting point — tune this by experimenting.
-const MIN_FREQUENCY_COUNT_DEFAULT = 10_000;
+// Tuned per word length to keep endpoints familiar without starving the graph.
+const MIN_FREQUENCY_COUNT_DEFAULT: Record<WordLength, number> = {
+  3: 500_000,
+  4: 650_000,
+};
 
 // ----------------------------------------------------------------------------
 // Basic file utilities
@@ -126,16 +129,45 @@ interface FilterContext {
   minCount: number;
 }
 
+interface ValidWordContext {
+  length: WordLength;
+  blacklist: Set<string>;
+  whitelist?: ReadonlySet<string>;
+}
+
+export function isValidWord(word: string, ctx: ValidWordContext): boolean {
+  if (word.length !== ctx.length) return false;
+  if (!/^[a-z]+$/.test(word)) return false;
+  if (ctx.blacklist.has(word)) return false;
+
+  return true;
+}
+
+export function filterValidWords(
+  rawWords: string[],
+  ctx: ValidWordContext,
+): string[] {
+  const result: string[] = [];
+  for (const word of rawWords) {
+    if (isValidWord(word, ctx)) {
+      result.push(word);
+    }
+  }
+
+  for (const word of ctx.whitelist ?? []) {
+    if (isValidWord(word, ctx)) {
+      result.push(word);
+    }
+  }
+
+  return result;
+}
+
 /**
  * Modular "is common" function. Swap this out if you change frequency source.
  */
 export function isCommonWord(word: string, ctx: FilterContext): boolean {
-  // Length and alpha safety
-  if (word.length !== ctx.length) return false;
-  if (!/^[a-z]+$/.test(word)) return false;
-
-  // Blacklist overrides everything
-  if (ctx.blacklist.has(word)) return false;
+  if (!isValidWord(word, ctx)) return false;
 
   // Whitelist overrides frequency
   if (ctx.whitelist.has(word)) return true;
@@ -168,7 +200,7 @@ export function filterCommonWords(
 // ----------------------------------------------------------------------------
 
 async function buildCommonLists(
-  minFrequencyCount: number,
+  minFrequencyCount?: number,
 ): Promise<Record<WordLength, string[]>> {
   const commonByLen: Partial<Record<WordLength, string[]>> = {};
 
@@ -192,20 +224,29 @@ async function buildCommonLists(
       blacklist,
       whitelist,
       freqMap,
-      minCount: minFrequencyCount,
+      minCount: minFrequencyCount ?? MIN_FREQUENCY_COUNT_DEFAULT[len],
     };
 
-    const commonWords = filterCommonWords(rawWords, ctx);
-    commonByLen[len] = commonWords;
+    const validWords = filterValidWords(rawWords, {
+      length: len,
+      blacklist,
+      whitelist,
+    });
 
-    const processedTxt = path.join(PROCESSED_DIR, `common_${len}.txt`);
-    writeWordListFile(processedTxt, commonWords);
+    const validProcessedTxt = path.join(PROCESSED_DIR, `valid_${len}.txt`);
+    writeWordListFile(validProcessedTxt, validWords);
 
     const wordsJson = path.join(PUBLIC_DIR, `words_${len}.json`);
-    writeJsonFile(wordsJson, commonWords);
+    writeJsonFile(wordsJson, validWords);
+
+    const commonWords = filterCommonWords(validWords, ctx);
+    commonByLen[len] = commonWords;
+
+    const commonProcessedTxt = path.join(PROCESSED_DIR, `common_${len}.txt`);
+    writeWordListFile(commonProcessedTxt, commonWords);
 
     console.log(
-      `[common] len=${len} -> common=${commonWords.length} (written ${processedTxt} & ${wordsJson})`,
+      `[lists] len=${len} -> valid=${validWords.length} common=${commonWords.length} (written ${validProcessedTxt}, ${commonProcessedTxt} & ${wordsJson})`,
     );
   }
 
@@ -326,14 +367,14 @@ function buildGraphs(
 
 interface CliOptions {
   step: "all" | "common" | "graphs";
-  minFrequencyCount: number;
+  minFrequencyCount?: number;
 }
 
 function parseCliArgs(argv: string[]): CliOptions {
   // argv: [node, script, ...]
   const args = argv.slice(2);
   let step: CliOptions["step"] = "all";
-  let minFrequencyCount = MIN_FREQUENCY_COUNT_DEFAULT;
+  let minFrequencyCount: number | undefined;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -368,7 +409,9 @@ async function main(): Promise<void> {
 
   const { step, minFrequencyCount } = parseCliArgs(process.argv);
   console.log(
-    `[preprocess] step=${step} minFrequencyCount=${minFrequencyCount}`,
+    minFrequencyCount === undefined
+      ? `[preprocess] step=${step} minFrequencyCount=default(3=${MIN_FREQUENCY_COUNT_DEFAULT[3]},4=${MIN_FREQUENCY_COUNT_DEFAULT[4]})`
+      : `[preprocess] step=${step} minFrequencyCount=${minFrequencyCount}`,
   );
 
   let commonByLen: Record<WordLength, string[]> | undefined;
@@ -382,7 +425,9 @@ async function main(): Promise<void> {
   }
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+const entryPoint = process.argv[1]
+
+if (entryPoint && import.meta.url === pathToFileURL(entryPoint).href) {
   main().catch((err) => {
     console.error(err);
     process.exit(1);

@@ -29,6 +29,11 @@ type Puzzle = {
   selections: ChangeSelection[];
 };
 
+type PuzzleData = {
+  graph: LadderGraph;
+  validWords: string[];
+};
+
 type MotionDirection =
   | "motion-up"
   | "motion-down"
@@ -95,7 +100,7 @@ function App() {
   const [themePreference, setThemePreference] = useState<ThemePreference>(
     getInitialThemePreference,
   );
-  const [graph, setGraph] = useState<LadderGraph | null>(null);
+  const [puzzleData, setPuzzleData] = useState<PuzzleData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [puzzle, setPuzzle] = useState<Puzzle | null>(null);
@@ -111,7 +116,12 @@ function App() {
     null,
   );
 
-  const dictionary = useMemo(() => new Set(graph?.words ?? []), [graph]);
+  const graph = puzzleData?.graph ?? null;
+
+  const dictionary = useMemo(
+    () => new Set(puzzleData?.validWords ?? []),
+    [puzzleData],
+  );
 
   const board = useMemo(() => {
     if (!puzzle) return null;
@@ -251,30 +261,45 @@ function App() {
   useEffect(() => {
     let cancelled = false;
 
-    const loadGraph = async () => {
+    const loadPuzzleData = async () => {
       setLoading(true);
       setError(null);
-      setGraph(null);
+      setPuzzleData(null);
       setPuzzle(null);
 
       try {
-        const response = await fetch(
-          `${import.meta.env.BASE_URL}data/graph_${wordLength}.json`,
-        );
-        if (!response.ok) {
+        const [graphResponse, wordsResponse] = await Promise.all([
+          fetch(`${import.meta.env.BASE_URL}data/graph_${wordLength}.json`),
+          fetch(`${import.meta.env.BASE_URL}data/words_${wordLength}.json`),
+        ]);
+
+        if (!graphResponse.ok) {
           throw new Error(
             `Failed to load graph_${wordLength}.json. Run npm run preprocess first.`,
           );
         }
 
-        const data = (await response.json()) as LadderGraph;
+        if (!wordsResponse.ok) {
+          throw new Error(
+            `Failed to load words_${wordLength}.json. Run npm run preprocess first.`,
+          );
+        }
+
+        const [graphData, validWords] = await Promise.all([
+          graphResponse.json() as Promise<LadderGraph>,
+          wordsResponse.json() as Promise<string[]>,
+        ]);
+
         if (!cancelled) {
-          setGraph(data);
+          setPuzzleData({
+            graph: graphData,
+            validWords,
+          });
         }
       } catch (err) {
         if (!cancelled) {
           setError(
-            err instanceof Error ? err.message : "Failed to load graph data.",
+            err instanceof Error ? err.message : "Failed to load puzzle data.",
           );
         }
       } finally {
@@ -284,7 +309,7 @@ function App() {
       }
     };
 
-    loadGraph();
+    loadPuzzleData();
 
     return () => {
       cancelled = true;

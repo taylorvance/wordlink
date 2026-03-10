@@ -10,6 +10,9 @@ const base =
 export default defineConfig({
   base,
   plugins: [react()],
+  server: {
+    allowedHosts: ['tvmini'],
+  },
   test: {
     environment: 'node',
     include: ['scripts/**/*.test.ts', 'src/**/*.test.ts'],

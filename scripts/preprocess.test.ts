@@ -3,12 +3,34 @@ import {
   buildWildcardMap,
   buildGraphForLength,
   filterCommonWords,
+  filterValidWords,
   isCommonWord,
+  isValidWord,
   type LadderGraph,
 } from "./preprocess";
 
 // Minimal fake FrequencyMap type matching your implementation
 type FrequencyMap = Map<string, number>;
+
+describe("isValidWord / filterValidWords", () => {
+  const ctx = {
+    length: 4 as const,
+    blacklist: new Set<string>(["arse"]),
+    whitelist: new Set<string>(["tvok", "arse"]),
+  };
+
+  it("filters invalid characters and blacklisted words", () => {
+    expect(isValidWord("cold", ctx)).toBe(true);
+    expect(isValidWord("arse", ctx)).toBe(false);
+    expect(isValidWord("co*d", ctx)).toBe(false);
+    expect(isValidWord("abc", ctx)).toBe(false);
+  });
+
+  it("keeps all non-blacklisted valid words", () => {
+    const raw = ["cold", "arse", "co*d", "warm"];
+    expect(filterValidWords(raw, ctx)).toEqual(["cold", "warm", "tvok"]);
+  });
+});
 
 describe("isCommonWord / filterCommonWords", () => {
   const freqMap: FrequencyMap = new Map<string, number>([
@@ -37,6 +59,11 @@ describe("isCommonWord / filterCommonWords", () => {
     const raw = ["cold", "cord", "rare", "test", "tiny"];
     const filtered = filterCommonWords(raw, ctx);
     expect(filtered.sort()).toEqual(["cold", "cord", "rare"].sort());
+  });
+
+  it("only promotes words that are also valid", () => {
+    expect(isCommonWord("te5t", ctx)).toBe(false);
+    expect(isCommonWord("tests", ctx)).toBe(false);
   });
 });
 
