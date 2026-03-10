@@ -12,6 +12,13 @@ import {
   type ChangeSelection,
 } from "./lib/board";
 import { generateRandomLadder, type LadderGraph } from "./lib/ladder";
+import {
+  applyThemePreference,
+  getInitialThemePreference,
+  persistThemePreference,
+  watchSystemTheme,
+  type ThemePreference,
+} from "./lib/theme";
 import "./App.css";
 
 type WordLength = 3 | 4;
@@ -80,6 +87,9 @@ function createPuzzle(graph: LadderGraph): Puzzle | null {
 
 function App() {
   const [wordLength, setWordLength] = useState<WordLength>(4);
+  const [themePreference, setThemePreference] = useState<ThemePreference>(
+    getInitialThemePreference,
+  );
   const [graph, setGraph] = useState<LadderGraph | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -187,6 +197,17 @@ function App() {
     setError(null);
     setPuzzle(nextPuzzle);
   };
+
+  useEffect(() => {
+    applyThemePreference(themePreference);
+    persistThemePreference(themePreference);
+
+    if (themePreference !== "system") return;
+
+    return watchSystemTheme(() => {
+      applyThemePreference("system");
+    });
+  }, [themePreference]);
 
   useEffect(() => {
     let cancelled = false;
@@ -305,6 +326,28 @@ function App() {
                   onChange={() => setWordLength(len as WordLength)}
                 />
                 <span>{len}</span>
+              </label>
+            ))}
+          </fieldset>
+
+          <fieldset className="theme-picker">
+            <legend>Theme</legend>
+            {[
+              { label: "Auto", value: "system" },
+              { label: "Light", value: "light" },
+              { label: "Dark", value: "dark" },
+            ].map((option) => (
+              <label key={option.value}>
+                <input
+                  type="radio"
+                  name="theme-preference"
+                  value={option.value}
+                  checked={themePreference === option.value}
+                  onChange={() =>
+                    setThemePreference(option.value as ThemePreference)
+                  }
+                />
+                <span>{option.label}</span>
               </label>
             ))}
           </fieldset>
