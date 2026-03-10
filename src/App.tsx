@@ -345,29 +345,12 @@ function App() {
     });
   };
 
-  const chosenCount =
-    puzzle?.selections.filter((selection) => selection !== null).length ?? 0;
-  const pendingColumns = (puzzle?.startWord.length ?? wordLength) - chosenCount;
-
-  const statusMessage = loading
-    ? "Loading ladder..."
-    : error
-      ? error
-      : board?.solved
-        ? "Ladder complete."
-        : board?.complete
-          ? "Not every rung is a valid word yet."
-          : `Pick ${pendingColumns} more ${pendingColumns === 1 ? "column" : "columns"}.`;
-
   const boardStyle = puzzle
     ? ({
         "--letters": puzzle.startWord.length,
         "--flow-duration": `${FLOW_DURATION_MS}ms`,
       } as CSSProperties)
     : undefined;
-
-  const showBoardState = !loading && !error && (board?.solved || board?.complete);
-  const boardStateClassName = board?.solved ? "solved" : "invalid";
 
   return (
     <div className="app-shell">
@@ -457,7 +440,7 @@ function App() {
             <div className="ladder-grid" style={boardStyle}>
               <div className="word-row is-fixed">
                 {puzzle.startWord.split("").map((letter, columnIndex) => (
-                  <div className="tile is-anchor" key={`start-${columnIndex}`}>
+                  <div className="tile" key={`start-${columnIndex}`}>
                     {letter}
                   </div>
                 ))}
@@ -575,7 +558,7 @@ function App() {
               <div className="word-row is-fixed">
                 {puzzle.endWord.split("").map((letter, columnIndex) => (
                   <div
-                    className={`tile is-anchor ${board?.implicitFinalColumn === columnIndex ? "is-final-column" : ""}`}
+                    className={`tile ${board?.implicitFinalColumn === columnIndex ? "is-final-column" : ""}`}
                     key={`end-${columnIndex}`}
                   >
                     {letter}
@@ -586,11 +569,6 @@ function App() {
           )}
         </section>
 
-        {showBoardState ? (
-          <p className={`board-state ${boardStateClassName}`}>
-            {statusMessage}
-          </p>
-        ) : null}
       </main>
     </div>
   );

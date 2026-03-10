@@ -13,6 +13,7 @@
   --surface: rgba(255, 255, 255, 0.94);
   --board: #fbfbfb;
   --anchor: #f2f2f2;
+  --fixed-row-bg: rgba(17, 17, 17, 0.04);
   --line: rgba(18, 18, 18, 0.1);
   --tile-line: #d3d6da;
   --focus: #4f86f7;
@@ -21,7 +22,6 @@
   --shadow: 0 18px 40px rgba(17, 17, 17, 0.08);
   --button-text: #ffffff;
   --tile-bg: #ffffff;
-  --tile-filled: #f8f8f8;
   --tile-selected: #f0f0f0;
   --danger-soft: rgba(179, 62, 46, 0.35);
   --danger-strong: rgba(179, 62, 46, 0.55);
@@ -44,6 +44,7 @@
   --surface: rgba(24, 28, 32, 0.92);
   --board: #14181b;
   --anchor: #20252a;
+  --fixed-row-bg: rgba(255, 255, 255, 0.06);
   --line: rgba(255, 255, 255, 0.12);
   --tile-line: #3b434b;
   --focus: #8ab4ff;
@@ -52,7 +53,6 @@
   --shadow: 0 22px 52px rgba(0, 0, 0, 0.35);
   --button-text: #0d1114;
   --tile-bg: #0f1316;
-  --tile-filled: #171b1f;
   --tile-selected: #20262b;
   --danger-soft: rgba(255, 156, 139, 0.42);
   --danger-strong: rgba(255, 156, 139, 0.64);
