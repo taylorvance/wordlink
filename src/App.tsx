@@ -40,6 +40,11 @@ type CellMotion = {
   direction: MotionDirection;
 };
 
+type PreviewTarget = {
+  rowIndex: number;
+  columnIndex: number;
+};
+
 const FLOW_DURATION_MS = 680;
 const FLOW_STAGGER_MS = 70;
 
@@ -97,6 +102,9 @@ function App() {
   const [animatedCells, setAnimatedCells] = useState<
     Record<string, CellMotion>
   >({});
+  const [previewTarget, setPreviewTarget] = useState<PreviewTarget | null>(
+    null,
+  );
   const previousCellsRef = useRef<string[][] | null>(null);
   const previousPuzzleRef = useRef<string | null>(null);
   const motionOriginRef = useRef<{ columnIndex: number; rowIndex: number } | null>(
@@ -114,6 +122,30 @@ function App() {
       dictionary,
     );
   }, [dictionary, puzzle]);
+
+  const previewSelections = useMemo(() => {
+    if (!puzzle || !previewTarget || board?.solved) return null;
+
+    return applyCellSelection(
+      puzzle.selections,
+      previewTarget.columnIndex,
+      previewTarget.rowIndex,
+    );
+  }, [board?.solved, previewTarget, puzzle]);
+
+  const previewBoard = useMemo(() => {
+    if (!puzzle || !previewSelections) return null;
+
+    return deriveBoardState(
+      puzzle.startWord,
+      puzzle.endWord,
+      previewSelections,
+      dictionary,
+    );
+  }, [dictionary, previewSelections, puzzle]);
+
+  const displayedBoard = previewBoard ?? board;
+  const displayedSelections = previewSelections ?? puzzle?.selections ?? [];
 
   useLayoutEffect(() => {
     if (!board || !puzzle) {
@@ -184,8 +216,15 @@ function App() {
     };
   }, [board, puzzle]);
 
+  useEffect(() => {
+    if (!puzzle || loading || !!error || board?.solved) {
+      setPreviewTarget(null);
+    }
+  }, [board?.solved, error, loading, puzzle]);
+
   const handleRefresh = () => {
     if (!graph) return;
+    setPreviewTarget(null);
 
     const nextPuzzle = createPuzzle(graph);
     if (!nextPuzzle) {
@@ -268,6 +307,7 @@ function App() {
 
   const handleCellClick = (rowIndex: number, columnIndex: number) => {
     if (!puzzle || board?.solved) return;
+    setPreviewTarget(null);
     motionOriginRef.current = { rowIndex, columnIndex };
 
     setPuzzle((currentPuzzle) => {
@@ -281,6 +321,27 @@ function App() {
           rowIndex,
         ),
       };
+    });
+  };
+
+  const showPreview = (rowIndex: number, columnIndex: number) => {
+    if (!puzzle || loading || !!error || board?.solved) return;
+
+    setPreviewTarget({ rowIndex, columnIndex });
+  };
+
+  const clearPreview = (rowIndex: number, columnIndex: number) => {
+    setPreviewTarget((currentPreview) => {
+      if (!currentPreview) return currentPreview;
+
+      if (
+        currentPreview.rowIndex !== rowIndex ||
+        currentPreview.columnIndex !== columnIndex
+      ) {
+        return currentPreview;
+      }
+
+      return null;
     });
   };
 
@@ -305,8 +366,8 @@ function App() {
       } as CSSProperties)
     : undefined;
 
-  const showBoardState =
-    !loading && !error && (board?.solved || board?.complete);
+  const showBoardState = !loading && !error && (board?.solved || board?.complete);
+  const boardStateClassName = board?.solved ? "solved" : "invalid";
 
   return (
     <div className="app-shell">
@@ -407,24 +468,40 @@ function App() {
                 (_, index) => {
                   const rowIndex = index + 1;
                   const rowState = board?.rowStates[index] ?? "pending";
-                  const rowWord = board?.intermediateWords[index] ?? "";
+                  const rowWord = displayedBoard?.intermediateWords[index] ?? "";
+                  const isPreviewRow = previewTarget?.rowIndex === rowIndex;
+                  const showRowState = !previewTarget;
 
                   return (
                     <div
-                      className={`word-row ${rowState === "invalid" ? "is-invalid" : ""} ${
-                        rowState === "valid" && board?.solved ? "is-valid" : ""
-                      }`}
+                      className={`word-row ${
+                        showRowState && rowState === "invalid" ? "is-invalid" : ""
+                      } ${
+                        showRowState && rowState === "valid" && board?.solved
+                          ? "is-valid"
+                          : ""
+                      } ${isPreviewRow ? "is-preview" : ""}`}
                       key={`row-${rowIndex}`}
                       aria-label={rowWord || `Row ${rowIndex}`}
                     >
                       {Array.from(
                         { length: puzzle.startWord.length },
                         (_, columnIndex) => {
-                          const letter =
+                          const actualLetter =
                             board?.intermediateCells[index]?.[columnIndex] ??
                             "";
+                          const letter =
+                            displayedBoard?.intermediateCells[index]?.[columnIndex] ??
+                            "";
                           const isSelected =
+                            displayedSelections[columnIndex] === rowIndex;
+                          const isActuallySelected =
                             puzzle.selections[columnIndex] === rowIndex;
+                          const isPreviewTarget =
+                            previewTarget?.rowIndex === rowIndex &&
+                            previewTarget.columnIndex === columnIndex;
+                          const isPreviewChange =
+                            !!previewBoard && actualLetter !== letter;
 
                           return (
                             <button
@@ -432,6 +509,10 @@ function App() {
                               type="button"
                               className={`tile button-tile ${letter ? "is-filled" : ""} ${
                                 isSelected ? "is-selected" : ""
+                              } ${
+                                isPreviewTarget ? "is-preview-target" : ""
+                              } ${
+                                isPreviewChange ? "is-preview-change" : ""
                               } ${
                                 animatedCells[`${rowIndex}-${columnIndex}`]?.direction ?? ""
                               }`}
@@ -445,9 +526,38 @@ function App() {
                               onClick={() =>
                                 handleCellClick(rowIndex, columnIndex)
                               }
+                              onPointerEnter={(event) => {
+                                if (event.pointerType === "mouse") {
+                                  showPreview(rowIndex, columnIndex);
+                                }
+                              }}
+                              onPointerLeave={(event) => {
+                                if (event.pointerType === "mouse") {
+                                  clearPreview(rowIndex, columnIndex);
+                                }
+                              }}
+                              onPointerDown={(event) => {
+                                if (event.pointerType !== "mouse") {
+                                  showPreview(rowIndex, columnIndex);
+                                }
+                              }}
+                              onPointerUp={(event) => {
+                                if (event.pointerType !== "mouse") {
+                                  clearPreview(rowIndex, columnIndex);
+                                }
+                              }}
+                              onPointerCancel={() =>
+                                clearPreview(rowIndex, columnIndex)
+                              }
+                              onFocus={(event) => {
+                                if (event.currentTarget.matches(":focus-visible")) {
+                                  showPreview(rowIndex, columnIndex);
+                                }
+                              }}
+                              onBlur={() => clearPreview(rowIndex, columnIndex)}
                               disabled={loading || !!error || board?.solved}
                               aria-label={
-                                isSelected
+                                isActuallySelected
                                   ? `Remove column ${columnIndex + 1} from row ${rowIndex}`
                                   : `Place column ${columnIndex + 1} on row ${rowIndex}`
                               }
@@ -477,7 +587,7 @@ function App() {
         </section>
 
         {showBoardState ? (
-          <p className={`board-state ${board?.solved ? "solved" : "invalid"}`}>
+          <p className={`board-state ${boardStateClassName}`}>
             {statusMessage}
           </p>
         ) : null}

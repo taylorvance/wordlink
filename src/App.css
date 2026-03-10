@@ -217,6 +217,27 @@
   background: var(--tile-selected);
 }
 
+.word-row.is-preview .tile {
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.button-tile.is-preview-target {
+  border-color: var(--focus);
+}
+
+.button-tile.is-preview-change {
+  border-style: dashed;
+  background: var(--anchor);
+  color: var(--muted);
+}
+
+.button-tile.is-preview-target.is-preview-change {
+  border-color: var(--focus);
+}
+
 .button-tile.motion-down {
   animation: tile-flow-down var(--flow-duration, 680ms)
     cubic-bezier(0.16, 1, 0.3, 1) var(--flow-delay, 0ms) both;
