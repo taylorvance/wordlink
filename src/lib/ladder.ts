@@ -13,7 +13,11 @@ export type LadderPath = {
 };
 
 export type RandomLadderOptions = {
-  maxStartTries?: number; // how many random start words to try
+  maxStartTries?: number;
+  maxPathTries?: number;
+  minNextLadders?: number;
+  runwayCheckLimit?: number;
+  rng?: () => number;
 };
 
 function getWordLength(graph: LadderGraph): number {
@@ -27,9 +31,6 @@ function getWordLength(graph: LadderGraph): number {
   return len;
 }
 
-/**
- * Helper to convert indices + positions into full LadderPath.
- */
 function buildLadderPath(
   graph: LadderGraph,
   indices: number[],
@@ -46,52 +47,173 @@ function shuffleInPlace<T>(arr: T[], rng: () => number = Math.random): void {
   }
 }
 
-/**
- * Generate a random ladder path that uses each character position exactly once.
- * Returns null if it fails to find one after some attempts.
- */
+function countLaddersFromStartIndex(
+  graph: LadderGraph,
+  startIndex: number,
+  limit: number,
+): number {
+  if (limit <= 0) return 0;
+
+  const wordLen = getWordLength(graph);
+  const path = [startIndex];
+
+  return dfsCountLadders(graph, startIndex, 0, 0, wordLen, path, limit);
+}
+
+function dfsCountLadders(
+  graph: LadderGraph,
+  currentIndex: number,
+  usedMask: number,
+  depth: number,
+  wordLen: number,
+  path: number[],
+  limit: number,
+): number {
+  if (limit <= 0) return 0;
+
+  if (depth === wordLen) {
+    const allBitsMask = (1 << wordLen) - 1;
+    return usedMask === allBitsMask ? 1 : 0;
+  }
+
+  const neighborsByPos = graph.neighbors[currentIndex];
+  if (!neighborsByPos || neighborsByPos.length !== wordLen) {
+    return 0;
+  }
+
+  let total = 0;
+
+  for (let pos = 0; pos < wordLen; pos++) {
+    if (usedMask & (1 << pos)) continue;
+
+    for (const nextIndex of neighborsByPos[pos]) {
+      if (path.includes(nextIndex)) continue;
+
+      path.push(nextIndex);
+      total += dfsCountLadders(
+        graph,
+        nextIndex,
+        usedMask | (1 << pos),
+        depth + 1,
+        wordLen,
+        path,
+        limit - total,
+      );
+      path.pop();
+
+      if (total >= limit) {
+        return total;
+      }
+    }
+  }
+
+  return total;
+}
+
+function createRandomLadderFromStartIndex(
+  graph: LadderGraph,
+  startIndex: number,
+  options: RandomLadderOptions = {},
+): LadderPath | null {
+  const wordLen = getWordLength(graph);
+  const maxPathTries = options.maxPathTries ?? 24;
+  const minNextLadders = options.minNextLadders ?? 0;
+  const runwayCheckLimit = Math.max(
+    options.runwayCheckLimit ?? minNextLadders,
+    minNextLadders,
+  );
+  const rng = options.rng ?? Math.random;
+
+  let bestPath: LadderPath | null = null;
+  let bestRunway = -1;
+
+  for (let attempt = 0; attempt < maxPathTries; attempt++) {
+    const path: number[] = [startIndex];
+    const positions: number[] = [];
+
+    const found = dfsRandomLadder(
+      graph,
+      startIndex,
+      0,
+      0,
+      wordLen,
+      path,
+      positions,
+      rng,
+    );
+
+    if (!found) continue;
+
+    const candidate = buildLadderPath(graph, [...path], [...positions]);
+    const endIndex = candidate.indices[candidate.indices.length - 1];
+    const runway = countLaddersFromStartIndex(graph, endIndex, runwayCheckLimit);
+
+    if (runway > bestRunway) {
+      bestRunway = runway;
+      bestPath = candidate;
+    }
+
+    if (runway >= minNextLadders) {
+      return candidate;
+    }
+  }
+
+  return bestPath;
+}
+
 export function generateRandomLadder(
   graph: LadderGraph,
   options: RandomLadderOptions = {},
 ): LadderPath | null {
-  const wordLen = getWordLength(graph);
   const maxStartTries = options.maxStartTries ?? 200;
-
   const totalWords = graph.words.length;
   if (totalWords === 0) return null;
 
-  const rng = Math.random;
+  const rng = options.rng ?? Math.random;
+  let bestPath: LadderPath | null = null;
+  let bestRunway = -1;
 
   for (let attempt = 0; attempt < maxStartTries; attempt++) {
     const startIndex = Math.floor(rng() * totalWords);
+    const candidate = createRandomLadderFromStartIndex(graph, startIndex, {
+      ...options,
+      rng,
+    });
 
-    const path: number[] = [startIndex];
-    const positions: number[] = [];
-    const usedMask = 0;
+    if (!candidate) continue;
 
-    if (
-      dfsRandomLadder(
-        graph,
-        startIndex,
-        usedMask,
-        0,
-        wordLen,
-        path,
-        positions,
-        rng,
-      )
-    ) {
-      return buildLadderPath(graph, path, positions);
+    const runway = countLaddersFromStartIndex(
+      graph,
+      candidate.indices[candidate.indices.length - 1],
+      Math.max(options.runwayCheckLimit ?? options.minNextLadders ?? 0, 1),
+    );
+
+    if (runway > bestRunway) {
+      bestRunway = runway;
+      bestPath = candidate;
+    }
+
+    if (runway >= (options.minNextLadders ?? 0)) {
+      return candidate;
     }
   }
 
-  return null;
+  return bestPath;
 }
 
-/**
- * DFS with backtracking to find a path of exactly `wordLen` steps,
- * using each position at most once (and exactly once if we succeed).
- */
+export function generateRandomLadderFromWord(
+  graph: LadderGraph,
+  startWord: string,
+  options: RandomLadderOptions = {},
+): LadderPath | null {
+  const startIndex = findWordIndex(graph, startWord);
+  if (startIndex === -1) {
+    return null;
+  }
+
+  return createRandomLadderFromStartIndex(graph, startIndex, options);
+}
+
 function dfsRandomLadder(
   graph: LadderGraph,
   currentIndex: number,
@@ -103,8 +225,6 @@ function dfsRandomLadder(
   rng: () => number,
 ): boolean {
   if (depth === wordLen) {
-    // We have wordLen steps, so path has wordLen+1 words, and we've used wordLen positions.
-    // usedMask should be all bits set (0..wordLen-1).
     const allBitsMask = (1 << wordLen) - 1;
     return usedMask === allBitsMask;
   }
@@ -114,7 +234,6 @@ function dfsRandomLadder(
     return false;
   }
 
-  // Choose order of positions: only unused positions that have neighbors.
   const posCandidates: number[] = [];
   for (let pos = 0; pos < wordLen; pos++) {
     if (usedMask & (1 << pos)) continue;
@@ -128,14 +247,12 @@ function dfsRandomLadder(
 
   shuffleInPlace(posCandidates, rng);
 
-  const visitedInPath = (idx: number) => path.includes(idx);
-
   for (const pos of posCandidates) {
     const neighbors = [...neighborsByPos[pos]];
     shuffleInPlace(neighbors, rng);
 
     for (const nextIndex of neighbors) {
-      if (visitedInPath(nextIndex)) continue;
+      if (path.includes(nextIndex)) continue;
 
       path.push(nextIndex);
       positions.push(pos);
@@ -156,7 +273,6 @@ function dfsRandomLadder(
         return true;
       }
 
-      // backtrack
       path.pop();
       positions.pop();
     }
@@ -165,20 +281,10 @@ function dfsRandomLadder(
   return false;
 }
 
-/**
- * Find index of a word in the graph. Returns -1 if not found.
- */
 export function findWordIndex(graph: LadderGraph, word: string): number {
-  // For now: linear search. You can optimize with a precomputed map if needed.
   return graph.words.indexOf(word.toLowerCase());
 }
 
-/**
- * Solve a ladder between start and end indices using the "each position at most once"
- * rule, and exactly wordLen steps.
- *
- * Returns a LadderPath if found, otherwise null.
- */
 export function solveLadderByIndex(
   graph: LadderGraph,
   startIdx: number,
@@ -216,16 +322,15 @@ export function solveLadderByIndex(
     if (!neighborsByPos) continue;
 
     for (let pos = 0; pos < wordLen; pos++) {
-      if (mask & (1 << pos)) continue; // already used this position
+      if (mask & (1 << pos)) continue;
 
-      const neighbors = neighborsByPos[pos];
-      for (const nextIdx of neighbors) {
+      for (const nextIdx of neighborsByPos[pos]) {
         const nextMask = mask | (1 << pos);
-        const k = key(nextIdx, nextMask);
-        if (visited.has(k)) continue;
-        visited.add(k);
-        parent.set(k, { prevIdx: idx, prevMask: mask, pos });
+        const nextKey = key(nextIdx, nextMask);
+        if (visited.has(nextKey)) continue;
 
+        visited.add(nextKey);
+        parent.set(nextKey, { prevIdx: idx, prevMask: mask, pos });
         queue.push({ idx: nextIdx, mask: nextMask, depth: depth + 1 });
       }
     }
@@ -235,7 +340,6 @@ export function solveLadderByIndex(
     return null;
   }
 
-  // Reconstruct path
   const pathIndices: number[] = [];
   const positions: number[] = [];
 
@@ -246,23 +350,19 @@ export function solveLadderByIndex(
 
     pathIndices.push(idx);
 
-    const p = parent.get(currentKey);
-    if (!p) break;
+    const previous = parent.get(currentKey);
+    if (!previous) break;
 
-    positions.push(p.pos);
-    currentKey = key(p.prevIdx, p.prevMask);
+    positions.push(previous.pos);
+    currentKey = key(previous.prevIdx, previous.prevMask);
   }
 
-  // We reconstructed from end->start; reverse
   pathIndices.reverse();
   positions.reverse();
 
   return buildLadderPath(graph, pathIndices, positions);
 }
 
-/**
- * Solve a ladder between two words (by string).
- */
 export function solveLadder(
   graph: LadderGraph,
   startWord: string,

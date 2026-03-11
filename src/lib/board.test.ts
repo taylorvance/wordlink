@@ -1,86 +1,104 @@
-import { describe, expect, it } from "vitest";
-import { applyCellSelection, deriveBoardState } from "./board";
+import { describe, expect, it } from 'vitest'
+import { applyCellSelection, deriveBoardState } from './board'
 
-describe("applyCellSelection", () => {
-  it("moves a row assignment instead of allowing duplicates", () => {
-    const initial = [1, null, 2, null];
+describe('applyCellSelection', () => {
+  it('moves a row assignment instead of allowing duplicates', () => {
+    const initial = [1, null, 2, null]
 
-    expect(applyCellSelection(initial, 3, 2)).toEqual([1, null, null, 2]);
-  });
+    expect(applyCellSelection(initial, 3, 2)).toEqual([1, null, null, 2])
+  })
 
-  it("toggles an existing selection off", () => {
+  it('toggles an existing selection off', () => {
     expect(applyCellSelection([null, 2, null], 1, 2)).toEqual([
       null,
       null,
       null,
-    ]);
-  });
-});
+    ])
+  })
 
-describe("deriveBoardState", () => {
-  const dictionary = new Set(["cold", "cord", "card", "ward", "warm"]);
+  it('clears lower-row selections when an upper row changes', () => {
+    expect(applyCellSelection([1, 2, 3, null], 0, 2)).toEqual([
+      2,
+      null,
+      null,
+      null,
+    ])
+  })
 
-  it("treats the last unassigned column as the final move and solves a valid ladder", () => {
-    const board = deriveBoardState("cold", "warm", [3, 2, 1, null], dictionary);
+  it('clears lower-row selections when an upper row is toggled off', () => {
+    expect(applyCellSelection([1, 2, 3, null], 1, 2)).toEqual([
+      1,
+      null,
+      null,
+      null,
+    ])
+  })
+})
 
-    expect(board.implicitFinalColumn).toBe(3);
-    expect(board.intermediateWords).toEqual(["cord", "card", "ward"]);
-    expect(board.rowStates).toEqual(["valid", "valid", "valid"]);
-    expect(board.solved).toBe(true);
-  });
+describe('deriveBoardState', () => {
+  const dictionary = new Set(['cold', 'cord', 'card', 'ward', 'warm'])
 
-  it("marks completed but invalid ladders", () => {
-    const board = deriveBoardState("cold", "warm", [1, 2, 3, null], dictionary);
+  it('treats the last unassigned column as the final move and solves a valid ladder', () => {
+    const board = deriveBoardState('cold', 'warm', [3, 2, 1, null], dictionary)
 
-    expect(board.complete).toBe(true);
-    expect(board.solved).toBe(false);
-    expect(board.rowStates).toEqual(["invalid", "invalid", "valid"]);
-  });
+    expect(board.implicitFinalColumn).toBe(3)
+    expect(board.intermediateWords).toEqual(['cord', 'card', 'ward'])
+    expect(board.rowStates).toEqual(['valid', 'valid', 'valid'])
+    expect(board.solved).toBe(true)
+  })
 
-  it("keeps incomplete boards pending until every intermediate row is claimed", () => {
+  it('marks completed but invalid ladders', () => {
+    const board = deriveBoardState('cold', 'warm', [1, 2, 3, null], dictionary)
+
+    expect(board.complete).toBe(true)
+    expect(board.solved).toBe(false)
+    expect(board.rowStates).toEqual(['invalid', 'invalid', 'valid'])
+  })
+
+  it('keeps incomplete boards pending until every intermediate row is claimed', () => {
     const board = deriveBoardState(
-      "cold",
-      "warm",
+      'cold',
+      'warm',
       [3, null, 1, null],
       dictionary,
-    );
+    )
 
-    expect(board.implicitFinalColumn).toBeNull();
-    expect(board.complete).toBe(false);
-    expect(board.rowStates).toEqual(["valid", "pending", "pending"]);
-    expect(board.intermediateCells[0]).toEqual(["c", "o", "r", "d"]);
-    expect(board.intermediateCells[1]).toEqual(["c", "", "r", ""]);
-    expect(board.intermediateCells[2]).toEqual(["w", "", "r", ""]);
-    expect(board.intermediateWords).toEqual(["cord", "", ""]);
-  });
+    expect(board.implicitFinalColumn).toBeNull()
+    expect(board.complete).toBe(false)
+    expect(board.rowStates).toEqual(['valid', 'pending', 'pending'])
+    expect(board.intermediateCells[0]).toEqual(['c', 'o', 'r', 'd'])
+    expect(board.intermediateCells[1]).toEqual(['c', '', 'r', ''])
+    expect(board.intermediateCells[2]).toEqual(['w', '', 'r', ''])
+    expect(board.intermediateWords).toEqual(['cord', '', ''])
+  })
 
-  it("does not fill the bottom row from the end word while the final boundary is unknown", () => {
+  it('does not fill the bottom row from the end word while the final boundary is unknown', () => {
     const board = deriveBoardState(
-      "cold",
-      "warm",
+      'cold',
+      'warm',
       [null, null, 3, null],
       dictionary,
-    );
+    )
 
-    expect(board.implicitFinalColumn).toBeNull();
-    expect(board.complete).toBe(false);
-    expect(board.intermediateCells[2]).toEqual(["", "", "r", ""]);
-    expect(board.intermediateWords).toEqual(["", "", ""]);
-    expect(board.rowStates).toEqual(["pending", "pending", "pending"]);
-  });
+    expect(board.implicitFinalColumn).toBeNull()
+    expect(board.complete).toBe(false)
+    expect(board.intermediateCells[2]).toEqual(['', '', 'r', ''])
+    expect(board.intermediateWords).toEqual(['', '', ''])
+    expect(board.rowStates).toEqual(['pending', 'pending', 'pending'])
+  })
 
-  it("fills a row from the known row above when its boundary is selected", () => {
+  it('fills a row from the known row above when its boundary is selected', () => {
     const board = deriveBoardState(
-      "cold",
-      "warm",
+      'cold',
+      'warm',
       [null, 2, 1, null],
       dictionary,
-    );
+    )
 
-    expect(board.complete).toBe(false);
-    expect(board.intermediateWords).toEqual(["cord", "card", ""]);
-    expect(board.rowStates).toEqual(["valid", "valid", "pending"]);
-    expect(board.intermediateCells[0]).toEqual(["c", "o", "r", "d"]);
-    expect(board.intermediateCells[1]).toEqual(["c", "a", "r", "d"]);
-  });
-});
+    expect(board.complete).toBe(false)
+    expect(board.intermediateWords).toEqual(['cord', 'card', ''])
+    expect(board.rowStates).toEqual(['valid', 'valid', 'pending'])
+    expect(board.intermediateCells[0]).toEqual(['c', 'o', 'r', 'd'])
+    expect(board.intermediateCells[1]).toEqual(['c', 'a', 'r', 'd'])
+  })
+})
