@@ -4,6 +4,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as readline from "readline";
 import { fileURLToPath, pathToFileURL } from "url";
+import { MIN_FREQUENCY_COUNT_DEFAULT } from "./config.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,13 +30,6 @@ function getFreqCsvPath(len: WordLength, dataDir: string): string {
   // e.g. data/freq_3.csv, data/freq_4.csv
   return path.join(dataDir, `freq_${len}.csv`);
 }
-
-// Minimum frequency count threshold for "common" words.
-// Tuned per word length to keep endpoints familiar without starving the graph.
-const MIN_FREQUENCY_COUNT_DEFAULT: Record<WordLength, number> = {
-  3: 10_000_000,
-  4: 650_000,
-};
 
 interface PreprocessPaths {
   dataDir: string;

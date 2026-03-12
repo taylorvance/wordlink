@@ -21,6 +21,13 @@ import {
 import LadderSnapshot from './components/LadderSnapshot'
 import RunReviewLadder from './components/RunReviewLadder'
 import {
+  TIMED_DANGER_MS,
+  TIMED_PENALTY_MS,
+  TIMED_REWARD_MS,
+  TIMED_START_MS,
+  TIMED_WARNING_MS,
+} from './lib/config'
+import {
   applyThemePreference,
   getInitialThemePreference,
   persistThemePreference,
@@ -83,13 +90,9 @@ type TimedTransition = {
 
 const FLOW_DURATION_MS = 680
 const FLOW_STAGGER_MS = 70
-const TIMED_START_MS = 45_000
-const TIMED_REWARD_MS = 2_000
-const TIMED_PENALTY_MS = 5_000
 const TIMED_TRANSITION_MS = 420
-const TIMED_MIN_NEXT_LADDERS = 2
-const TIMED_WARNING_MS = 22_000
-const TIMED_DANGER_MS = 12_000
+// Require a little onward variety so timed runs do not dead-end immediately.
+const TIMED_MIN_RUNWAY_LADDERS = 50
 
 function getCellMotion(
   originRow: number,
@@ -154,16 +157,16 @@ function samePuzzle(a: Puzzle, b: Puzzle): boolean {
 function createPuzzle(
   graph: LadderGraph,
   options: {
-    minNextLadders?: number
+    minRunwayLadders?: number
     startWord?: string
   } = {},
 ): Puzzle | null {
   const path = options.startWord
     ? generateRandomLadderFromWord(graph, options.startWord, {
-        minNextLadders: options.minNextLadders,
+        minRunwayLadders: options.minRunwayLadders,
       })
     : generateRandomLadder(graph, {
-        minNextLadders: options.minNextLadders,
+        minRunwayLadders: options.minRunwayLadders,
       })
 
   if (!path) return null
@@ -359,7 +362,7 @@ function App() {
     setTimedTransition(null)
 
     const nextPuzzle = createPuzzle(puzzleGraph, {
-      minNextLadders: TIMED_MIN_NEXT_LADDERS,
+      minRunwayLadders: TIMED_MIN_RUNWAY_LADDERS,
     })
     if (!nextPuzzle) {
       timerDeadlineRef.current = null
@@ -697,7 +700,7 @@ function App() {
     }
 
     const nextPuzzle = createPuzzle(puzzleGraph, {
-      minNextLadders: TIMED_MIN_NEXT_LADDERS,
+      minRunwayLadders: TIMED_MIN_RUNWAY_LADDERS,
       startWord: puzzle.endWord,
     })
 

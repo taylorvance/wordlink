@@ -165,6 +165,7 @@ describe("runPreprocess", () => {
 
     await runPreprocess({
       step: "all",
+      minFrequencyCount: 500_000,
       dataDir,
       publicDir,
     });

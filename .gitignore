@@ -1,4 +1,3 @@
-data/processed/
 public/data/
 
 # Logs
@@ -13,7 +12,11 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+.env
+.env.local
+.env.*.local
 *.local
+!.env.example
 
 # Editor directories and files
 .vscode/*

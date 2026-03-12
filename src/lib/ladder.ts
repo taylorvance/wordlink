@@ -15,7 +15,7 @@ export type LadderPath = {
 export type RandomLadderOptions = {
   maxStartTries?: number;
   maxPathTries?: number;
-  minNextLadders?: number;
+  minRunwayLadders?: number;
   runwayCheckLimit?: number;
   rng?: () => number;
 };
@@ -117,10 +117,10 @@ function createRandomLadderFromStartIndex(
 ): LadderPath | null {
   const wordLen = getWordLength(graph);
   const maxPathTries = options.maxPathTries ?? 24;
-  const minNextLadders = options.minNextLadders ?? 0;
+  const minRunwayLadders = options.minRunwayLadders ?? 0;
   const runwayCheckLimit = Math.max(
-    options.runwayCheckLimit ?? minNextLadders,
-    minNextLadders,
+    options.runwayCheckLimit ?? minRunwayLadders,
+    minRunwayLadders,
   );
   const rng = options.rng ?? Math.random;
 
@@ -153,7 +153,7 @@ function createRandomLadderFromStartIndex(
       bestPath = candidate;
     }
 
-    if (runway >= minNextLadders) {
+    if (runway >= minRunwayLadders) {
       return candidate;
     }
   }
@@ -185,7 +185,7 @@ export function generateRandomLadder(
     const runway = countLaddersFromStartIndex(
       graph,
       candidate.indices[candidate.indices.length - 1],
-      Math.max(options.runwayCheckLimit ?? options.minNextLadders ?? 0, 1),
+      Math.max(options.runwayCheckLimit ?? options.minRunwayLadders ?? 0, 1),
     );
 
     if (runway > bestRunway) {
@@ -193,7 +193,7 @@ export function generateRandomLadder(
       bestPath = candidate;
     }
 
-    if (runway >= (options.minNextLadders ?? 0)) {
+    if (runway >= (options.minRunwayLadders ?? 0)) {
       return candidate;
     }
   }
