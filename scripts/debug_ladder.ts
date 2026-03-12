@@ -14,7 +14,7 @@ const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, "..");
 
 function loadGraph(len: 3 | 4): LadderGraph {
-  const graphPath = path.join(ROOT, "public", "data", `graph_${len}.json`);
+  const graphPath = path.join(ROOT, "public", "data", `puzzle_graph_${len}.json`);
   if (!fs.existsSync(graphPath)) {
     throw new Error(
       `Graph file not found: ${graphPath}. Did you run preprocess?`,
@@ -46,7 +46,7 @@ async function main(): Promise<void> {
   const len: 3 | 4 = 4; // change to 3 if you want to test 3-letter mode
   const graph = loadGraph(len);
 
-  console.log(`Loaded graph_${len}.json with ${graph.words.length} words`);
+  console.log(`Loaded puzzle_graph_${len}.json with ${graph.words.length} words`);
 
   const randomLadder = generateRandomLadder(graph, { maxStartTries: 500 });
   if (!randomLadder) {

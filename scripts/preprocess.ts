@@ -18,17 +18,16 @@ export type LadderGraph = {
 };
 
 const ROOT = path.resolve(__dirname, "..");
-const RAW_DIR = path.join(ROOT, "data", "raw");
-const PROCESSED_DIR = path.join(ROOT, "data", "processed");
+const DATA_DIR = path.join(ROOT, "data");
 const PUBLIC_DIR = path.join(ROOT, "public", "data");
 
 // Adjust if/when you add more lengths
 const WORD_LENGTHS: WordLength[] = [3, 4];
 
 // Kaggle CSV: "word,count"
-function getFreqCsvPath(len: WordLength): string {
-  // e.g. data/raw/freq_3.csv, data/raw/freq_4.csv
-  return path.join(RAW_DIR, `freq_${len}.csv`);
+function getFreqCsvPath(len: WordLength, dataDir: string): string {
+  // e.g. data/freq_3.csv, data/freq_4.csv
+  return path.join(dataDir, `freq_${len}.csv`);
 }
 
 // Minimum frequency count threshold for "common" words.
@@ -36,6 +35,16 @@ function getFreqCsvPath(len: WordLength): string {
 const MIN_FREQUENCY_COUNT_DEFAULT: Record<WordLength, number> = {
   3: 500_000,
   4: 650_000,
+};
+
+interface PreprocessPaths {
+  dataDir: string;
+  publicDir: string;
+}
+
+const DEFAULT_PATHS: PreprocessPaths = {
+  dataDir: DATA_DIR,
+  publicDir: PUBLIC_DIR,
 };
 
 // ----------------------------------------------------------------------------
@@ -55,12 +64,6 @@ function readWordListFile(filePath: string): string[] {
     .split(/\r?\n/)
     .map((line) => line.trim().toLowerCase())
     .filter((line) => line.length > 0 && !line.startsWith("#"));
-}
-
-function writeWordListFile(filePath: string, words: string[]): void {
-  ensureDir(path.dirname(filePath));
-  const uniqueSorted = Array.from(new Set(words)).sort();
-  fs.writeFileSync(filePath, uniqueSorted.join("\n") + "\n", "utf8");
 }
 
 function writeJsonFile(filePath: string, data: unknown): void {
@@ -131,14 +134,12 @@ interface FilterContext {
 
 interface ValidWordContext {
   length: WordLength;
-  blacklist: Set<string>;
   whitelist?: ReadonlySet<string>;
 }
 
 export function isValidWord(word: string, ctx: ValidWordContext): boolean {
   if (word.length !== ctx.length) return false;
   if (!/^[a-z]+$/.test(word)) return false;
-  if (ctx.blacklist.has(word)) return false;
 
   return true;
 }
@@ -168,6 +169,7 @@ export function filterValidWords(
  */
 export function isCommonWord(word: string, ctx: FilterContext): boolean {
   if (!isValidWord(word, ctx)) return false;
+  if (ctx.blacklist.has(word)) return false;
 
   // Whitelist overrides frequency
   if (ctx.whitelist.has(word)) return true;
@@ -199,16 +201,17 @@ export function filterCommonWords(
 // Common word lists (Step 1)
 // ----------------------------------------------------------------------------
 
-async function buildCommonLists(
+export async function buildCommonLists(
   minFrequencyCount?: number,
+  paths: PreprocessPaths = DEFAULT_PATHS,
 ): Promise<Record<WordLength, string[]>> {
   const commonByLen: Partial<Record<WordLength, string[]>> = {};
 
   for (const len of WORD_LENGTHS) {
-    const scrabblePath = path.join(RAW_DIR, `scrabble_${len}.txt`);
-    const blacklistPath = path.join(RAW_DIR, `blacklist_${len}.txt`);
-    const whitelistPath = path.join(RAW_DIR, `whitelist_${len}.txt`);
-    const freqCsvPath = getFreqCsvPath(len);
+    const scrabblePath = path.join(paths.dataDir, `scrabble_${len}.txt`);
+    const blacklistPath = path.join(paths.dataDir, `blacklist_${len}.txt`);
+    const whitelistPath = path.join(paths.dataDir, `whitelist_${len}.txt`);
+    const freqCsvPath = getFreqCsvPath(len, paths.dataDir);
 
     const rawWords = readWordListFile(scrabblePath);
     const blacklist = new Set(readWordListFile(blacklistPath));
@@ -229,24 +232,17 @@ async function buildCommonLists(
 
     const validWords = filterValidWords(rawWords, {
       length: len,
-      blacklist,
       whitelist,
     });
 
-    const validProcessedTxt = path.join(PROCESSED_DIR, `valid_${len}.txt`);
-    writeWordListFile(validProcessedTxt, validWords);
-
-    const wordsJson = path.join(PUBLIC_DIR, `words_${len}.json`);
+    const wordsJson = path.join(paths.publicDir, `allowed_words_${len}.json`);
     writeJsonFile(wordsJson, validWords);
 
     const commonWords = filterCommonWords(validWords, ctx);
     commonByLen[len] = commonWords;
 
-    const commonProcessedTxt = path.join(PROCESSED_DIR, `common_${len}.txt`);
-    writeWordListFile(commonProcessedTxt, commonWords);
-
     console.log(
-      `[lists] len=${len} -> valid=${validWords.length} common=${commonWords.length} (written ${validProcessedTxt}, ${commonProcessedTxt} & ${wordsJson})`,
+      `[lists] len=${len} allowed=${validWords.length} puzzle=${commonWords.length} (written ${wordsJson})`,
     );
   }
 
@@ -318,33 +314,20 @@ export function buildGraphForLength(words: string[]): LadderGraph {
   return { words, neighbors };
 }
 
-function loadCommonFromProcessed(len: WordLength): string[] {
-  const processedTxt = path.join(PROCESSED_DIR, `common_${len}.txt`);
-  const words = readWordListFile(processedTxt);
-  if (words.length === 0) {
-    console.warn(
-      `[graph] No common_${len}.txt found or file empty at ${processedTxt}`,
-    );
-  }
-  return words;
-}
-
-function buildGraphs(
-  commonByLen?: Partial<Record<WordLength, string[]>>,
+export function buildGraphs(
+  commonByLen: Partial<Record<WordLength, string[]>>,
+  paths: PreprocessPaths = DEFAULT_PATHS,
 ): void {
   for (const len of WORD_LENGTHS) {
-    const words =
-      commonByLen?.[len] && commonByLen[len]!.length > 0
-        ? commonByLen[len]!
-        : loadCommonFromProcessed(len);
+    const words = commonByLen[len] ?? [];
 
     if (words.length === 0) {
-      console.warn(`[graph] Skipping len=${len} (no common words).`);
+      console.warn(`[graph] Skipping len=${len} (no puzzle words).`);
       continue;
     }
 
     const graph = buildGraphForLength(words);
-    const graphPath = path.join(PUBLIC_DIR, `graph_${len}.json`);
+    const graphPath = path.join(paths.publicDir, `puzzle_graph_${len}.json`);
     writeJsonFile(graphPath, graph);
 
     // Stats
@@ -404,24 +387,30 @@ function parseCliArgs(argv: string[]): CliOptions {
 // ----------------------------------------------------------------------------
 
 async function main(): Promise<void> {
-  ensureDir(PROCESSED_DIR);
-  ensureDir(PUBLIC_DIR);
-
   const { step, minFrequencyCount } = parseCliArgs(process.argv);
+  await runPreprocess({ step, minFrequencyCount });
+}
+
+export async function runPreprocess(
+  options: CliOptions & Partial<PreprocessPaths>,
+): Promise<void> {
+  const paths: PreprocessPaths = {
+    ...DEFAULT_PATHS,
+    ...options,
+  };
+
+  ensureDir(paths.publicDir);
+
   console.log(
-    minFrequencyCount === undefined
-      ? `[preprocess] step=${step} minFrequencyCount=default(3=${MIN_FREQUENCY_COUNT_DEFAULT[3]},4=${MIN_FREQUENCY_COUNT_DEFAULT[4]})`
-      : `[preprocess] step=${step} minFrequencyCount=${minFrequencyCount}`,
+    options.minFrequencyCount === undefined
+      ? `[preprocess] step=${options.step} minFrequencyCount=default(3=${MIN_FREQUENCY_COUNT_DEFAULT[3]},4=${MIN_FREQUENCY_COUNT_DEFAULT[4]})`
+      : `[preprocess] step=${options.step} minFrequencyCount=${options.minFrequencyCount}`,
   );
 
-  let commonByLen: Record<WordLength, string[]> | undefined;
+  const commonByLen = await buildCommonLists(options.minFrequencyCount, paths);
 
-  if (step === "all" || step === "common") {
-    commonByLen = await buildCommonLists(minFrequencyCount);
-  }
-
-  if (step === "all" || step === "graphs") {
-    buildGraphs(commonByLen);
+  if (options.step === "all" || options.step === "graphs") {
+    buildGraphs(commonByLen, paths);
   }
 }
 

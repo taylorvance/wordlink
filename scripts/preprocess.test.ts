@@ -1,4 +1,7 @@
-import { describe, it, expect } from "vitest";
+import fs from "fs";
+import os from "os";
+import path from "path";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   buildWildcardMap,
   buildGraphForLength,
@@ -6,29 +9,37 @@ import {
   filterValidWords,
   isCommonWord,
   isValidWord,
+  runPreprocess,
   type LadderGraph,
 } from "./preprocess";
 
 // Minimal fake FrequencyMap type matching your implementation
 type FrequencyMap = Map<string, number>;
 
+const tempDirs: string[] = [];
+
+afterEach(() => {
+  for (const dir of tempDirs.splice(0)) {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 describe("isValidWord / filterValidWords", () => {
   const ctx = {
     length: 4 as const,
-    blacklist: new Set<string>(["arse"]),
-    whitelist: new Set<string>(["tvok", "arse"]),
+    whitelist: new Set<string>(["tvok"]),
   };
 
-  it("filters invalid characters and blacklisted words", () => {
+  it("filters invalid characters but keeps real blacklisted words valid", () => {
     expect(isValidWord("cold", ctx)).toBe(true);
-    expect(isValidWord("arse", ctx)).toBe(false);
+    expect(isValidWord("arse", ctx)).toBe(true);
     expect(isValidWord("co*d", ctx)).toBe(false);
     expect(isValidWord("abc", ctx)).toBe(false);
   });
 
-  it("keeps all non-blacklisted valid words", () => {
+  it("keeps all valid words and appends whitelist entries", () => {
     const raw = ["cold", "arse", "co*d", "warm"];
-    expect(filterValidWords(raw, ctx)).toEqual(["cold", "warm", "tvok"]);
+    expect(filterValidWords(raw, ctx)).toEqual(["cold", "arse", "warm", "tvok"]);
   });
 });
 
@@ -114,5 +125,83 @@ describe("buildGraphForLength", () => {
         expect(graph.neighbors[i][pos]).not.toContain(i);
       }
     }
+  });
+});
+
+describe("runPreprocess", () => {
+  it("writes only consolidated runtime assets with blacklist and whitelist behavior split correctly", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "wordlink-preprocess-"));
+    tempDirs.push(root);
+
+    const dataDir = path.join(root, "data");
+    const publicDir = path.join(root, "public-data");
+
+    fs.mkdirSync(dataDir, { recursive: true });
+
+    fs.writeFileSync(
+      path.join(dataDir, "scrabble_3.txt"),
+      ["bad", "dad", "dab", "sex", "tit"].join("\n") + "\n",
+    );
+    fs.writeFileSync(
+      path.join(dataDir, "blacklist_3.txt"),
+      ["sex", "tit"].join("\n") + "\n",
+    );
+    fs.writeFileSync(path.join(dataDir, "whitelist_3.txt"), "bag\n");
+    fs.writeFileSync(
+      path.join(dataDir, "freq_3.csv"),
+      ["word,count", "bad,900000", "dad,800000", "dab,700000", "sex,600000", "tit,600000"].join("\n") + "\n",
+    );
+
+    fs.writeFileSync(
+      path.join(dataDir, "scrabble_4.txt"),
+      ["cold", "cord", "sexy"].join("\n") + "\n",
+    );
+    fs.writeFileSync(path.join(dataDir, "blacklist_4.txt"), "sexy\n");
+    fs.writeFileSync(path.join(dataDir, "whitelist_4.txt"), "word\n");
+    fs.writeFileSync(
+      path.join(dataDir, "freq_4.csv"),
+      ["word,count", "cold,900000", "cord,800000", "sexy,700000"].join("\n") + "\n",
+    );
+
+    await runPreprocess({
+      step: "all",
+      dataDir,
+      publicDir,
+    });
+
+    const words3 = JSON.parse(
+      fs.readFileSync(path.join(publicDir, "allowed_words_3.json"), "utf8"),
+    ) as string[];
+    const graph3 = JSON.parse(
+      fs.readFileSync(path.join(publicDir, "puzzle_graph_3.json"), "utf8"),
+    ) as LadderGraph;
+
+    expect(words3).toEqual(expect.arrayContaining(["sex", "tit", "bag"]));
+
+    expect(graph3.words).not.toContain("sex");
+    expect(graph3.words).not.toContain("tit");
+
+    expect(graph3.words).toContain("bag");
+
+    const words4 = JSON.parse(
+      fs.readFileSync(path.join(publicDir, "allowed_words_4.json"), "utf8"),
+    ) as string[];
+    const graph4 = JSON.parse(
+      fs.readFileSync(path.join(publicDir, "puzzle_graph_4.json"), "utf8"),
+    ) as LadderGraph;
+
+    expect(words4).toEqual(expect.arrayContaining(["sexy", "word"]));
+
+    expect(graph4.words).not.toContain("sexy");
+
+    expect(graph4.words).toContain("word");
+
+    const publicFiles = fs.readdirSync(publicDir).sort();
+    expect(publicFiles).toEqual([
+      "allowed_words_3.json",
+      "allowed_words_4.json",
+      "puzzle_graph_3.json",
+      "puzzle_graph_4.json",
+    ]);
   });
 });

@@ -41,8 +41,8 @@ type Puzzle = {
 }
 
 type PuzzleData = {
-  graph: LadderGraph
-  validWords: string[]
+  puzzleGraph: LadderGraph
+  allowedWords: string[]
 }
 
 type MotionDirection =
@@ -232,10 +232,10 @@ function App() {
   const liveBoardRef = useRef<HTMLDivElement | null>(null)
   const reviewRef = useRef<HTMLDivElement | null>(null)
 
-  const graph = puzzleData?.graph ?? null
+  const puzzleGraph = puzzleData?.puzzleGraph ?? null
 
   const dictionary = useMemo(
-    () => new Set(puzzleData?.validWords ?? []),
+    () => new Set(puzzleData?.allowedWords ?? []),
     [puzzleData],
   )
 
@@ -334,14 +334,14 @@ function App() {
   }, [])
 
   const loadClassicPuzzle = useCallback(() => {
-    if (!graph) return
+    if (!puzzleGraph) return
 
     resetBoardPresentation()
     timerDeadlineRef.current = null
     setTimedRun(null)
     setTimedTransition(null)
 
-    const nextPuzzle = createPuzzle(graph)
+    const nextPuzzle = createPuzzle(puzzleGraph)
     if (!nextPuzzle) {
       setError('Unable to build a ladder. Try again.')
       setPuzzle(null)
@@ -350,15 +350,15 @@ function App() {
 
     setError(null)
     setPuzzle(nextPuzzle)
-  }, [graph, resetBoardPresentation])
+  }, [puzzleGraph, resetBoardPresentation])
 
   const startTimedRun = useCallback(() => {
-    if (!graph) return
+    if (!puzzleGraph) return
 
     resetBoardPresentation()
     setTimedTransition(null)
 
-    const nextPuzzle = createPuzzle(graph, {
+    const nextPuzzle = createPuzzle(puzzleGraph, {
       minNextLadders: TIMED_MIN_NEXT_LADDERS,
     })
     if (!nextPuzzle) {
@@ -378,7 +378,7 @@ function App() {
       status: 'active',
       timeLeftMs: TIMED_START_MS,
     })
-  }, [graph, resetBoardPresentation])
+  }, [puzzleGraph, resetBoardPresentation])
 
   useLayoutEffect(() => {
     if (!liveBoardRef.current) return
@@ -517,31 +517,31 @@ function App() {
 
       try {
         const [graphResponse, wordsResponse] = await Promise.all([
-          fetch(`${import.meta.env.BASE_URL}data/graph_${wordLength}.json`),
-          fetch(`${import.meta.env.BASE_URL}data/words_${wordLength}.json`),
+          fetch(`${import.meta.env.BASE_URL}data/puzzle_graph_${wordLength}.json`),
+          fetch(`${import.meta.env.BASE_URL}data/allowed_words_${wordLength}.json`),
         ])
 
         if (!graphResponse.ok) {
           throw new Error(
-            `Failed to load graph_${wordLength}.json. Run npm run preprocess first.`,
+            `Failed to load puzzle_graph_${wordLength}.json. Run npm run preprocess first.`,
           )
         }
 
         if (!wordsResponse.ok) {
           throw new Error(
-            `Failed to load words_${wordLength}.json. Run npm run preprocess first.`,
+            `Failed to load allowed_words_${wordLength}.json. Run npm run preprocess first.`,
           )
         }
 
-        const [graphData, validWords] = await Promise.all([
+        const [graphData, allowedWords] = await Promise.all([
           graphResponse.json() as Promise<LadderGraph>,
           wordsResponse.json() as Promise<string[]>,
         ])
 
         if (!cancelled) {
           setPuzzleData({
-            graph: graphData,
-            validWords,
+            puzzleGraph: graphData,
+            allowedWords,
           })
         }
       } catch (err) {
@@ -565,7 +565,7 @@ function App() {
   }, [wordLength])
 
   useEffect(() => {
-    if (!graph) return
+    if (!puzzleGraph) return
 
     if (mode === 'timed') {
       startTimedRun()
@@ -573,7 +573,7 @@ function App() {
     }
 
     loadClassicPuzzle()
-  }, [graph, loadClassicPuzzle, mode, startTimedRun])
+  }, [loadClassicPuzzle, mode, puzzleGraph, startTimedRun])
 
   useEffect(() => {
     if (!isTimedActive || timedTransition) return
@@ -676,7 +676,7 @@ function App() {
   useEffect(() => {
     if (
       !isTimedActive ||
-      !graph ||
+      !puzzleGraph ||
       !puzzle ||
       !board ||
       !board.solved ||
@@ -696,7 +696,7 @@ function App() {
       setBoardHeight(measuredHeight)
     }
 
-    const nextPuzzle = createPuzzle(graph, {
+    const nextPuzzle = createPuzzle(puzzleGraph, {
       minNextLadders: TIMED_MIN_NEXT_LADDERS,
       startWord: puzzle.endWord,
     })
@@ -754,7 +754,7 @@ function App() {
     })
     invalidAttemptRef.current = null
     motionOriginRef.current = null
-  }, [board, boardHeight, dictionary, graph, isTimedActive, puzzle, timedTransition])
+  }, [board, boardHeight, dictionary, isTimedActive, puzzle, puzzleGraph, timedTransition])
 
   useEffect(() => {
     if (!timedTransition) return
@@ -770,7 +770,7 @@ function App() {
   }, [timedTransition])
 
   const handleRefresh = () => {
-    if (!graph) return
+    if (!puzzleGraph) return
 
     if (mode === 'timed') {
       startTimedRun()
@@ -886,7 +886,7 @@ function App() {
             type='button'
             className='refresh-button'
             onClick={handleRefresh}
-            disabled={!graph || loading}
+            disabled={!puzzleGraph || loading}
             aria-label={mode === 'timed' ? 'Restart timed run' : 'Reset puzzle'}
           >
             <svg viewBox='0 0 24 24' aria-hidden='true'>

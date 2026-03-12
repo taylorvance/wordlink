@@ -93,10 +93,10 @@ function readFrequencyMap(filePath: string): FrequencyMap {
 
 export function loadWordInputs(length: WordLength): WordInputs {
   return {
-    rawWords: readWordListFile(`data/raw/scrabble_${length}.txt`),
-    blacklist: new Set(readWordListFile(`data/raw/blacklist_${length}.txt`)),
-    whitelist: new Set(readWordListFile(`data/raw/whitelist_${length}.txt`)),
-    freqMap: readFrequencyMap(`data/raw/freq_${length}.csv`),
+    rawWords: readWordListFile(`data/scrabble_${length}.txt`),
+    blacklist: new Set(readWordListFile(`data/blacklist_${length}.txt`)),
+    whitelist: new Set(readWordListFile(`data/whitelist_${length}.txt`)),
+    freqMap: readFrequencyMap(`data/freq_${length}.csv`),
   }
 }
 
@@ -107,7 +107,6 @@ export function buildWordPools(
 ): { validWords: string[]; commonWords: string[] } {
   const validWords = filterValidWords(inputs.rawWords, {
     length,
-    blacklist: inputs.blacklist,
     whitelist: inputs.whitelist,
   })
 

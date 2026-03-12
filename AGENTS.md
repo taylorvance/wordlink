@@ -6,13 +6,13 @@ WordLink is a Vite + React + TypeScript word-ladder app with preprocessing scrip
 - `src/` holds the React app (`App.tsx`, `main.tsx`) and shared logic under `src/lib/`.
 - `src/assets/` contains static images used by the app; `public/` holds Vite-served public files.
 - `scripts/` contains Node/TS utilities for preprocessing and debugging (`preprocess.ts`, `debug_ladder.ts`).
-- `data/raw/` stores input word lists and frequency data; `data/processed/` stores generated filtered lists.
+- `data/` stores checked-in input word lists and frequency data; `public/data/` stores generated runtime assets.
 - `dist/` is the production build output (generated).
 
 ## Build, Test, and Development Commands
 - `npm run dev`: start the Vite dev server with HMR.
 - `npm run build`: type-check, run preprocessing, and produce a production build.
-- `npm run preprocess`: regenerate processed word data from `data/raw/`.
+- `npm run preprocess`: regenerate runtime word data from `data/`.
 - `npm run lint`: run ESLint across the project.
 - `npm run test`: run the Vitest suite once.
 - `npm run test:watch`: run Vitest in watch mode.
@@ -36,5 +36,5 @@ WordLink is a Vite + React + TypeScript word-ladder app with preprocessing scrip
 - Link relevant issues or notes when touching data or preprocessing behavior.
 
 ## Data & Preprocessing Notes
-- Update inputs in `data/raw/` and re-run `npm run preprocess` to refresh `data/processed/` outputs.
-- Avoid editing `data/processed/` by hand; treat it as generated.
+- Update inputs in `data/` and re-run `npm run preprocess` to refresh `public/data/` outputs.
+- Avoid editing `public/data/` by hand; treat it as generated.
