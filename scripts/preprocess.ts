@@ -33,7 +33,7 @@ function getFreqCsvPath(len: WordLength, dataDir: string): string {
 // Minimum frequency count threshold for "common" words.
 // Tuned per word length to keep endpoints familiar without starving the graph.
 const MIN_FREQUENCY_COUNT_DEFAULT: Record<WordLength, number> = {
-  3: 500_000,
+  3: 10_000_000,
   4: 650_000,
 };
 

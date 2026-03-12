@@ -83,13 +83,13 @@ type TimedTransition = {
 
 const FLOW_DURATION_MS = 680
 const FLOW_STAGGER_MS = 70
-const TIMED_START_MS = 30_000
+const TIMED_START_MS = 45_000
 const TIMED_REWARD_MS = 2_000
 const TIMED_PENALTY_MS = 5_000
 const TIMED_TRANSITION_MS = 420
 const TIMED_MIN_NEXT_LADDERS = 2
-const TIMED_WARNING_MS = 15_000
-const TIMED_DANGER_MS = 8_000
+const TIMED_WARNING_MS = 22_000
+const TIMED_DANGER_MS = 12_000
 
 function getCellMotion(
   originRow: number,
