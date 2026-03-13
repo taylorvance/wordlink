@@ -36,7 +36,7 @@ import {
 } from './lib/theme'
 import './App.css'
 
-type WordLength = 3 | 4
+type WordLength = 3 | 4 | 5
 
 type GameMode = 'classic' | 'timed'
 type TimerState = 'normal' | 'warning' | 'danger'
@@ -871,7 +871,7 @@ function App() {
 
           <fieldset className='length-picker'>
             <legend>Ladder length</legend>
-            {[3, 4].map((len) => (
+            {[3, 4, 5].map((len) => (
               <label key={len}>
                 <input
                   type='radio'

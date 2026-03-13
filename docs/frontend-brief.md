@@ -51,7 +51,7 @@ Scrap the current frontend and build a polished single-page application around t
 
 - A refresh button is always visible.
 - A radio control selects ladder length.
-- Ladder length options are 3 and 4.
+- Ladder length options are 3, 4, and 5.
 - Default ladder length is 4.
 - No hint system in v1.
 - Keep the interface minimal (KISS).

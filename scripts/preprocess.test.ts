@@ -136,6 +136,17 @@ describe("runPreprocess", () => {
     fs.writeFileSync(path.join(dataDir, "blacklist_4.txt"), "sexy\n");
     fs.writeFileSync(path.join(dataDir, "whitelist_4.txt"), "word\n");
 
+    fs.writeFileSync(
+      path.join(dataDir, "dictionary_5.txt"),
+      ["stone", "shone", "phone", "phony"].join("\n") + "\n",
+    );
+    fs.writeFileSync(
+      path.join(dataDir, "puzzle_words_5.txt"),
+      ["stone", "shone", "phone", "phony", "zzzzz"].join("\n") + "\n",
+    );
+    fs.writeFileSync(path.join(dataDir, "blacklist_5.txt"), "phony\n");
+    fs.writeFileSync(path.join(dataDir, "whitelist_5.txt"), "phone\n");
+
     await runPreprocess({
       step: "all",
       dataDir,
@@ -167,12 +178,26 @@ describe("runPreprocess", () => {
     expect(graph4.words).not.toContain("madeup");
     expect(graph4.words).toContain("word");
 
+    const words5 = JSON.parse(
+      fs.readFileSync(path.join(publicDir, "allowed_words_5.json"), "utf8"),
+    ) as string[];
+    const graph5 = JSON.parse(
+      fs.readFileSync(path.join(publicDir, "puzzle_graph_5.json"), "utf8"),
+    ) as LadderGraph;
+
+    expect(words5).toEqual(expect.arrayContaining(["stone", "shone", "phone", "phony"]));
+    expect(graph5.words).not.toContain("phony");
+    expect(graph5.words).not.toContain("zzzzz");
+    expect(graph5.words).toContain("phone");
+
     const publicFiles = fs.readdirSync(publicDir).sort();
     expect(publicFiles).toEqual([
       "allowed_words_3.json",
       "allowed_words_4.json",
+      "allowed_words_5.json",
       "puzzle_graph_3.json",
       "puzzle_graph_4.json",
+      "puzzle_graph_5.json",
     ]);
   });
 });

@@ -13,7 +13,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, "..");
 
-function loadGraph(len: 3 | 4): LadderGraph {
+function loadGraph(len: 3 | 4 | 5): LadderGraph {
   const graphPath = path.join(ROOT, "public", "data", `puzzle_graph_${len}.json`);
   if (!fs.existsSync(graphPath)) {
     throw new Error(
@@ -43,7 +43,7 @@ function formatLadder(
 }
 
 async function main(): Promise<void> {
-  const len: 3 | 4 = 4; // change to 3 if you want to test 3-letter mode
+  const len: 3 | 4 | 5 = 5; // change to 3 or 4 if you want to test shorter modes
   const graph = loadGraph(len);
 
   console.log(`Loaded puzzle_graph_${len}.json with ${graph.words.length} words`);

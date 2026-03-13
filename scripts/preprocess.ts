@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-type WordLength = 3 | 4;
+type WordLength = 3 | 4 | 5;
 
 // Graph representation:
 // graph[wordIndex][pos] = array of neighbor word indices that differ at that pos
@@ -21,7 +21,7 @@ const DATA_DIR = path.join(ROOT, "data");
 const PUBLIC_DIR = path.join(ROOT, "public", "data");
 
 // Adjust if/when you add more lengths
-const WORD_LENGTHS: WordLength[] = [3, 4];
+const WORD_LENGTHS: WordLength[] = [3, 4, 5];
 
 interface PreprocessPaths {
   dataDir: string;
