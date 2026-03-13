@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "preprocess": "node scripts/preprocess.ts all",
+    "build:dictionary": "tsx scripts/build_dictionary.ts",
     "test": "vitest",
     "test:watch": "vitest watch",
     "debug:ladder": "tsx scripts/debug_ladder.ts",

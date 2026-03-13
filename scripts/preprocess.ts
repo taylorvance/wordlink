@@ -202,18 +202,18 @@ export async function buildCommonLists(
   const commonByLen: Partial<Record<WordLength, string[]>> = {};
 
   for (const len of WORD_LENGTHS) {
-    const scrabblePath = path.join(paths.dataDir, `scrabble_${len}.txt`);
+    const dictionaryPath = path.join(paths.dataDir, `dictionary_${len}.txt`);
     const blacklistPath = path.join(paths.dataDir, `blacklist_${len}.txt`);
     const whitelistPath = path.join(paths.dataDir, `whitelist_${len}.txt`);
     const freqCsvPath = getFreqCsvPath(len, paths.dataDir);
 
-    const rawWords = readWordListFile(scrabblePath);
+    const rawWords = readWordListFile(dictionaryPath);
     const blacklist = new Set(readWordListFile(blacklistPath));
     const whitelist = new Set(readWordListFile(whitelistPath));
     const freqMap = await loadFrequencyMap(freqCsvPath);
 
     console.log(
-      `[raw] len=${len} scrabble=${rawWords.length} blacklist=${blacklist.size} whitelist=${whitelist.size}`,
+      `[raw] len=${len} dictionary=${rawWords.length} blacklist=${blacklist.size} whitelist=${whitelist.size}`,
     );
 
     const ctx: FilterContext = {

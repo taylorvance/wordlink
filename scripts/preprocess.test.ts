@@ -139,7 +139,7 @@ describe("runPreprocess", () => {
     fs.mkdirSync(dataDir, { recursive: true });
 
     fs.writeFileSync(
-      path.join(dataDir, "scrabble_3.txt"),
+      path.join(dataDir, "dictionary_3.txt"),
       ["bad", "dad", "dab", "sex", "tit"].join("\n") + "\n",
     );
     fs.writeFileSync(
@@ -153,7 +153,7 @@ describe("runPreprocess", () => {
     );
 
     fs.writeFileSync(
-      path.join(dataDir, "scrabble_4.txt"),
+      path.join(dataDir, "dictionary_4.txt"),
       ["cold", "cord", "sexy"].join("\n") + "\n",
     );
     fs.writeFileSync(path.join(dataDir, "blacklist_4.txt"), "sexy\n");

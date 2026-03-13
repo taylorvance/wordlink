@@ -11,7 +11,7 @@ Link
 ## Preprocess
 
 1. Prep player-valid word list
-   1. start with scrabble list
+   1. start with `data/dictionary_*.txt`
    2. keep real words even if they appear in `data/blacklist_*.txt`
    3. add `data/whitelist_*.txt` words if present
 2. Prep common puzzle word list
@@ -24,7 +24,7 @@ Link
 4. Create graph
    1. for each word's wildcard, add all indices for that wildcard (minus current word's index) to that word's graph line
 
-`data/blacklist_*.txt` and `data/whitelist_*.txt` affect puzzle generation, not whether a player is allowed to enter a real word during play. Generated runtime assets are written to `public/data/`. See `data/README.md` for the detailed data contract.
+`data/blacklist_*.txt` and `data/whitelist_*.txt` affect puzzle generation, not whether a player is allowed to enter a real word during play. Generated runtime assets are written to `public/data/`. See `data/README.md` for the detailed data contract and [docs/data-sources.md](docs/data-sources.md) for source/provenance notes.
 
 ## Tuning
 
@@ -42,6 +42,6 @@ Link
 
 ## Acknowledgements
 
-1. Scrabble dictionary (for valid words) - idk
+1. Current checked-in `dictionary_3.txt` / `dictionary_4.txt` were inherited from an older import. Original source URL was not recorded; see `docs/data-sources.md`.
 1. Word frequencies (for finding common English words) - https://www.kaggle.com/datasets/rtatman/english-word-frequency/data
 1. Bad word list (for filtering) - https://www.cs.cmu.edu/~biglou/resources/bad-words.txt

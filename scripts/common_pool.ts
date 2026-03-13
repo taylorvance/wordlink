@@ -93,7 +93,7 @@ function readFrequencyMap(filePath: string): FrequencyMap {
 
 export function loadWordInputs(length: WordLength): WordInputs {
   return {
-    rawWords: readWordListFile(`data/scrabble_${length}.txt`),
+    rawWords: readWordListFile(`data/dictionary_${length}.txt`),
     blacklist: new Set(readWordListFile(`data/blacklist_${length}.txt`)),
     whitelist: new Set(readWordListFile(`data/whitelist_${length}.txt`)),
     freqMap: readFrequencyMap(`data/freq_${length}.csv`),
