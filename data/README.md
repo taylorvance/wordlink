@@ -8,6 +8,7 @@ This directory contains the checked-in source inputs used by preprocessing.
 - `puzzle_words_*.txt`: puzzle-generation input. These words seed the graph used for generated ladders.
 - `blacklist_*.txt`: puzzle-generation exclusions only. These words should not appear in generated ladders, but they are still allowed as player-entered words if they are otherwise valid dictionary words.
 - `whitelist_*.txt`: puzzle-generation inclusions. These words are added to the player-valid list and are also kept in the puzzle-generation pool even if frequency would normally exclude them.
+- `SCOWL-NOTICE.txt`: retained attribution and license notice for the current SCOWL-derived inputs.
 
 `blacklist_*.txt` does not mean "invalid everywhere." It only removes words from the generated puzzle pool.
 

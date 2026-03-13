@@ -4,10 +4,12 @@ This project keeps only the length-specific inputs that the app actually uses. T
 
 ## Current State
 
-- `data/dictionary_3.txt` and `data/dictionary_4.txt` were inherited from an older import that used `scrabble_*.txt` filenames.
-- The original dictionary source URL for those checked-in files was not recorded.
-- `data/puzzle_words_3.txt` and `data/puzzle_words_4.txt` were bootstrapped from the existing generated graph inputs so the app could migrate away from frequency-based preprocessing without changing current gameplay immediately.
-- The original source URL for those initial checked-in puzzle-word files was not recorded either.
+- `data/dictionary_3.txt`, `data/dictionary_4.txt`, and `data/dictionary_5.txt` are derived from a manual SCOWL export using:
+  - `https://app.aspell.net/create?max_size=60&spelling=US&variant_level=1&diacritic=strip&download=wordlist&encoding=utf-8&format=inline`
+- `data/puzzle_words_3.txt`, `data/puzzle_words_4.txt`, and `data/puzzle_words_5.txt` are derived from a manual SCOWL export using:
+  - `https://app.aspell.net/create?max_size=35&spelling=US&variant_level=1&diacritic=strip&download=wordlist&encoding=utf-8&format=inline`
+- Both exports were generated from SCOWL commit `f0556be` dated `Fri Mar 6 18:58:57 2026 -0500`.
+- The retained SCOWL attribution and permission notice lives in `data/SCOWL-NOTICE.txt`.
 - The profanity/offensive-word filtering list was derived from:
   - https://www.cs.cmu.edu/~biglou/resources/bad-words.txt
 
@@ -74,5 +76,4 @@ The build script:
 ## TODO
 
 - Record the exact historical source for the current 3/4-letter dictionary files if it can be recovered from outside the repo.
-- Replace the bootstrapped `puzzle_words_3.txt` / `puzzle_words_4.txt` files with SCOWL-derived versions.
 - Add source/version/license notes here whenever the dictionary source changes.

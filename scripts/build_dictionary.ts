@@ -89,6 +89,13 @@ function normalizeWord(raw: string): string | null {
   return word
 }
 
+function getWordListBody(rawText: string): string[] {
+  const lines = rawText.split(/\r?\n/)
+  const dividerIndex = lines.findIndex((line) => line.trim() === '---')
+
+  return dividerIndex === -1 ? lines : lines.slice(dividerIndex + 1)
+}
+
 export function buildDictionaryFiles(
   inputPath: string,
   lengths: readonly number[],
@@ -99,7 +106,7 @@ export function buildDictionaryFiles(
     throw new Error(`Input file not found: ${inputPath}`)
   }
 
-  const rawLines = fs.readFileSync(inputPath, 'utf8').split(/\r?\n/)
+  const rawLines = getWordListBody(fs.readFileSync(inputPath, 'utf8'))
   const normalizedWords = rawLines
     .map(normalizeWord)
     .filter((word): word is string => word !== null)
