@@ -13,8 +13,7 @@
     "build:dictionary": "tsx scripts/build_dictionary.ts",
     "test": "vitest",
     "test:watch": "vitest watch",
-    "debug:ladder": "tsx scripts/debug_ladder.ts",
-    "analyze:common": "tsx scripts/analyze_common.ts"
+    "debug:ladder": "tsx scripts/debug_ladder.ts"
   },
   "dependencies": {
     "react": "^19.2.0",

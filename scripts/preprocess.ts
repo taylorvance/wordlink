@@ -2,9 +2,7 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import * as readline from "readline";
 import { fileURLToPath, pathToFileURL } from "url";
-import { MIN_FREQUENCY_COUNT_DEFAULT } from "./config.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,12 +22,6 @@ const PUBLIC_DIR = path.join(ROOT, "public", "data");
 
 // Adjust if/when you add more lengths
 const WORD_LENGTHS: WordLength[] = [3, 4];
-
-// Kaggle CSV: "word,count"
-function getFreqCsvPath(len: WordLength, dataDir: string): string {
-  // e.g. data/freq_3.csv, data/freq_4.csv
-  return path.join(dataDir, `freq_${len}.csv`);
-}
 
 interface PreprocessPaths {
   dataDir: string;
@@ -66,64 +58,14 @@ function writeJsonFile(filePath: string, data: unknown): void {
 }
 
 // ----------------------------------------------------------------------------
-// Frequency loading (Kaggle word,count CSV)
-// ----------------------------------------------------------------------------
-
-type FrequencyMap = Map<string, number>;
-
-async function loadFrequencyMap(csvPath: string): Promise<FrequencyMap> {
-  const freq = new Map<string, number>();
-
-  if (!fs.existsSync(csvPath)) {
-    console.warn(
-      `[freq] CSV not found at ${csvPath}. All words will be treated as uncommon unless whitelisted.`,
-    );
-    return freq;
-  }
-
-  const rl = readline.createInterface({
-    input: fs.createReadStream(csvPath),
-    crlfDelay: Infinity,
-  });
-
-  let isFirstLine = true;
-
-  for await (const line of rl) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-
-    // Skip header if present
-    if (isFirstLine && /word/i.test(trimmed) && /count/i.test(trimmed)) {
-      isFirstLine = false;
-      continue;
-    }
-    isFirstLine = false;
-
-    const parts = trimmed.split(",");
-    if (parts.length < 2) continue;
-
-    const word = parts[0].toLowerCase();
-    const countStr = parts[1].trim();
-    const count = Number.parseInt(countStr, 10);
-    if (!Number.isFinite(count)) continue;
-
-    freq.set(word, count);
-  }
-
-  console.log(`[freq] Loaded ${freq.size} entries from ${csvPath}`);
-  return freq;
-}
-
-// ----------------------------------------------------------------------------
 // Filters
 // ----------------------------------------------------------------------------
 
-interface FilterContext {
+interface PuzzleWordContext {
   length: WordLength;
   blacklist: Set<string>;
   whitelist: Set<string>;
-  freqMap: FrequencyMap;
-  minCount: number;
+  allowedWords: ReadonlySet<string>;
 }
 
 interface ValidWordContext {
@@ -143,14 +85,18 @@ export function filterValidWords(
   ctx: ValidWordContext,
 ): string[] {
   const result: string[] = [];
+  const seen = new Set<string>();
+
   for (const word of rawWords) {
-    if (isValidWord(word, ctx)) {
+    if (isValidWord(word, ctx) && !seen.has(word)) {
+      seen.add(word);
       result.push(word);
     }
   }
 
   for (const word of ctx.whitelist ?? []) {
-    if (isValidWord(word, ctx)) {
+    if (isValidWord(word, ctx) && !seen.has(word)) {
+      seen.add(word);
       result.push(word);
     }
   }
@@ -158,89 +104,84 @@ export function filterValidWords(
   return result;
 }
 
-/**
- * Modular "is common" function. Swap this out if you change frequency source.
- */
-export function isCommonWord(word: string, ctx: FilterContext): boolean {
-  if (!isValidWord(word, ctx)) return false;
-  if (ctx.blacklist.has(word)) return false;
-
-  // Whitelist overrides frequency
-  if (ctx.whitelist.has(word)) return true;
-
-  // Frequency check (default behavior)
-  const count = ctx.freqMap.get(word) ?? 0;
-  if (count < ctx.minCount) return false;
-
-  return true;
-}
-
-/**
- * Apply all filters to raw words and return the "common" list.
- */
-export function filterCommonWords(
+export function filterPuzzleWords(
   rawWords: string[],
-  ctx: FilterContext,
+  ctx: PuzzleWordContext,
 ): string[] {
   const result: string[] = [];
-  for (const w of rawWords) {
-    if (isCommonWord(w, ctx)) {
-      result.push(w);
+  const seen = new Set<string>();
+
+  for (const word of rawWords) {
+    if (!isValidWord(word, ctx)) continue;
+    if (!ctx.allowedWords.has(word)) continue;
+    if (ctx.blacklist.has(word) && !ctx.whitelist.has(word)) continue;
+
+    if (!seen.has(word)) {
+      seen.add(word);
+      result.push(word);
     }
   }
+
+  for (const word of ctx.whitelist) {
+    if (!isValidWord(word, ctx)) continue;
+    if (!ctx.allowedWords.has(word)) continue;
+
+    if (!seen.has(word)) {
+      seen.add(word);
+      result.push(word);
+    }
+  }
+
   return result;
 }
 
 // ----------------------------------------------------------------------------
-// Common word lists (Step 1)
+// Word lists (Step 1)
 // ----------------------------------------------------------------------------
 
-export async function buildCommonLists(
-  minFrequencyCount?: number,
+export function buildWordLists(
   paths: PreprocessPaths = DEFAULT_PATHS,
-): Promise<Record<WordLength, string[]>> {
-  const commonByLen: Partial<Record<WordLength, string[]>> = {};
+): Record<WordLength, string[]> {
+  const puzzleByLen: Partial<Record<WordLength, string[]>> = {};
 
   for (const len of WORD_LENGTHS) {
     const dictionaryPath = path.join(paths.dataDir, `dictionary_${len}.txt`);
+    const puzzleWordsPath = path.join(paths.dataDir, `puzzle_words_${len}.txt`);
     const blacklistPath = path.join(paths.dataDir, `blacklist_${len}.txt`);
     const whitelistPath = path.join(paths.dataDir, `whitelist_${len}.txt`);
-    const freqCsvPath = getFreqCsvPath(len, paths.dataDir);
 
-    const rawWords = readWordListFile(dictionaryPath);
+    const rawDictionaryWords = readWordListFile(dictionaryPath);
+    const rawPuzzleWords = readWordListFile(puzzleWordsPath);
     const blacklist = new Set(readWordListFile(blacklistPath));
     const whitelist = new Set(readWordListFile(whitelistPath));
-    const freqMap = await loadFrequencyMap(freqCsvPath);
 
     console.log(
-      `[raw] len=${len} dictionary=${rawWords.length} blacklist=${blacklist.size} whitelist=${whitelist.size}`,
+      `[raw] len=${len} dictionary=${rawDictionaryWords.length} puzzleSource=${rawPuzzleWords.length} blacklist=${blacklist.size} whitelist=${whitelist.size}`,
     );
 
-    const ctx: FilterContext = {
-      length: len,
-      blacklist,
-      whitelist,
-      freqMap,
-      minCount: minFrequencyCount ?? MIN_FREQUENCY_COUNT_DEFAULT[len],
-    };
-
-    const validWords = filterValidWords(rawWords, {
+    const validWords = filterValidWords(rawDictionaryWords, {
       length: len,
       whitelist,
     });
+    const validWordSet = new Set(validWords);
 
     const wordsJson = path.join(paths.publicDir, `allowed_words_${len}.json`);
     writeJsonFile(wordsJson, validWords);
 
-    const commonWords = filterCommonWords(validWords, ctx);
-    commonByLen[len] = commonWords;
+    const puzzleWords = filterPuzzleWords(rawPuzzleWords, {
+      length: len,
+      blacklist,
+      whitelist,
+      allowedWords: validWordSet,
+    });
+    puzzleByLen[len] = puzzleWords;
 
     console.log(
-      `[lists] len=${len} allowed=${validWords.length} puzzle=${commonWords.length} (written ${wordsJson})`,
+      `[lists] len=${len} allowed=${validWords.length} puzzle=${puzzleWords.length} (written ${wordsJson})`,
     );
   }
 
-  return commonByLen as Record<WordLength, string[]>;
+  return puzzleByLen as Record<WordLength, string[]>;
 }
 
 // ----------------------------------------------------------------------------
@@ -309,11 +250,11 @@ export function buildGraphForLength(words: string[]): LadderGraph {
 }
 
 export function buildGraphs(
-  commonByLen: Partial<Record<WordLength, string[]>>,
+  puzzleByLen: Partial<Record<WordLength, string[]>>,
   paths: PreprocessPaths = DEFAULT_PATHS,
 ): void {
   for (const len of WORD_LENGTHS) {
-    const words = commonByLen[len] ?? [];
+    const words = puzzleByLen[len] ?? [];
 
     if (words.length === 0) {
       console.warn(`[graph] Skipping len=${len} (no puzzle words).`);
@@ -324,7 +265,6 @@ export function buildGraphs(
     const graphPath = path.join(paths.publicDir, `puzzle_graph_${len}.json`);
     writeJsonFile(graphPath, graph);
 
-    // Stats
     let edgeCount = 0;
     for (const byPos of graph.neighbors) {
       for (const arr of byPos) {
@@ -344,14 +284,11 @@ export function buildGraphs(
 
 interface CliOptions {
   step: "all" | "common" | "graphs";
-  minFrequencyCount?: number;
 }
 
 function parseCliArgs(argv: string[]): CliOptions {
-  // argv: [node, script, ...]
   const args = argv.slice(2);
   let step: CliOptions["step"] = "all";
-  let minFrequencyCount: number | undefined;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -360,20 +297,9 @@ function parseCliArgs(argv: string[]): CliOptions {
       step = arg;
       continue;
     }
-
-    if (arg === "--min-count" && i + 1 < args.length) {
-      const val = Number.parseInt(args[i + 1], 10);
-      if (Number.isFinite(val)) {
-        minFrequencyCount = val;
-      }
-      i++;
-      continue;
-    }
-
-    // Unknown args just ignored for now
   }
 
-  return { step, minFrequencyCount };
+  return { step };
 }
 
 // ----------------------------------------------------------------------------
@@ -381,8 +307,8 @@ function parseCliArgs(argv: string[]): CliOptions {
 // ----------------------------------------------------------------------------
 
 async function main(): Promise<void> {
-  const { step, minFrequencyCount } = parseCliArgs(process.argv);
-  await runPreprocess({ step, minFrequencyCount });
+  const { step } = parseCliArgs(process.argv);
+  await runPreprocess({ step });
 }
 
 export async function runPreprocess(
@@ -395,20 +321,16 @@ export async function runPreprocess(
 
   ensureDir(paths.publicDir);
 
-  console.log(
-    options.minFrequencyCount === undefined
-      ? `[preprocess] step=${options.step} minFrequencyCount=default(3=${MIN_FREQUENCY_COUNT_DEFAULT[3]},4=${MIN_FREQUENCY_COUNT_DEFAULT[4]})`
-      : `[preprocess] step=${options.step} minFrequencyCount=${options.minFrequencyCount}`,
-  );
+  console.log(`[preprocess] step=${options.step}`);
 
-  const commonByLen = await buildCommonLists(options.minFrequencyCount, paths);
+  const puzzleByLen = buildWordLists(paths);
 
   if (options.step === "all" || options.step === "graphs") {
-    buildGraphs(commonByLen, paths);
+    buildGraphs(puzzleByLen, paths);
   }
 }
 
-const entryPoint = process.argv[1]
+const entryPoint = process.argv[1];
 
 if (entryPoint && import.meta.url === pathToFileURL(entryPoint).href) {
   main().catch((err) => {
