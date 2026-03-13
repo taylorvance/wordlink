@@ -35,7 +35,8 @@ Link
 ## Env Config
 
 - Copy `.env.example` to `.env` or `.env.local` to tune gameplay and preprocessing without code changes.
-- Timed-mode env knobs are `VITE_TIMED_START_MS`, `VITE_TIMED_REWARD_MS`, `VITE_TIMED_PENALTY_MS`, `VITE_TIMED_WARNING_MS`, and `VITE_TIMED_DANGER_MS`.
+- Timed-mode env knobs are `VITE_TIMED_START_MS_<len>`, `VITE_TIMED_REWARD_MS_<len>`, and `VITE_TIMED_PENALTY_MS_<len>` for lengths `3`, `4`, and `5`.
+- Timed warning/danger thresholds are derived from each length's start time in code rather than configured separately.
 - `VITE_BASE_PATH` remains the deploy-path override for Vite builds.
 
 ## Acknowledgements

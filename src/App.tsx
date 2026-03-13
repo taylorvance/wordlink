@@ -20,13 +20,7 @@ import {
 } from './lib/ladder'
 import LadderSnapshot from './components/LadderSnapshot'
 import RunReviewLadder from './components/RunReviewLadder'
-import {
-  TIMED_DANGER_MS,
-  TIMED_PENALTY_MS,
-  TIMED_REWARD_MS,
-  TIMED_START_MS,
-  TIMED_WARNING_MS,
-} from './lib/config'
+import { getTimedConfig, type TimedConfig } from './lib/config'
 import {
   applyThemePreference,
   getInitialThemePreference,
@@ -200,9 +194,9 @@ function getThemeButtonLabel(preference: ThemePreference): string {
   return 'Dark'
 }
 
-function getTimerState(timeLeftMs: number): TimerState {
-  if (timeLeftMs <= TIMED_DANGER_MS) return 'danger'
-  if (timeLeftMs <= TIMED_WARNING_MS) return 'warning'
+function getTimerState(timeLeftMs: number, timedConfig: TimedConfig): TimerState {
+  if (timeLeftMs <= timedConfig.dangerMs) return 'danger'
+  if (timeLeftMs <= timedConfig.warningMs) return 'warning'
   return 'normal'
 }
 
@@ -275,13 +269,17 @@ function App() {
 
   const displayedBoard = previewBoard ?? board
   const displayedSelections = previewSelections ?? puzzle?.selections ?? []
+  const timedConfig = getTimedConfig(wordLength)
   const isTimedMode = mode === 'timed'
   const isTimedActive = isTimedMode && timedRun?.status === 'active'
   const isTimedOver = isTimedMode && timedRun?.status === 'over'
-  const timerState = getTimerState(timedRun?.timeLeftMs ?? TIMED_START_MS)
+  const timerState = getTimerState(timedRun?.timeLeftMs ?? timedConfig.startMs, timedConfig)
   const timerFill = Math.max(
     0,
-    Math.min(1, (timedRun?.timeLeftMs ?? TIMED_START_MS) / TIMED_START_MS),
+    Math.min(
+      1,
+      (timedRun?.timeLeftMs ?? timedConfig.startMs) / timedConfig.startMs,
+    ),
   )
   const boardDisabled =
     loading ||
@@ -372,16 +370,16 @@ function App() {
       return
     }
 
-    timerDeadlineRef.current = Date.now() + TIMED_START_MS
+    timerDeadlineRef.current = Date.now() + timedConfig.startMs
     setError(null)
     setPuzzle(nextPuzzle)
     setTimedRun({
       history: [],
       laddersCleared: 0,
       status: 'active',
-      timeLeftMs: TIMED_START_MS,
+      timeLeftMs: timedConfig.startMs,
     })
-  }, [puzzleGraph, resetBoardPresentation])
+  }, [puzzleGraph, resetBoardPresentation, timedConfig.startMs])
 
   useLayoutEffect(() => {
     if (!liveBoardRef.current) return
@@ -644,7 +642,10 @@ function App() {
 
     const now = Date.now()
     if (timerDeadlineRef.current !== null) {
-      const nextDeadline = Math.max(now, timerDeadlineRef.current - TIMED_PENALTY_MS)
+      const nextDeadline = Math.max(
+        now,
+        timerDeadlineRef.current - timedConfig.penaltyMs,
+      )
       timerDeadlineRef.current = nextDeadline === now ? null : nextDeadline
     }
 
@@ -661,7 +662,7 @@ function App() {
         timeLeftMs: nextTimeLeft,
       }
     })
-  }, [board, isTimedActive, puzzle, timedTransition])
+  }, [board, isTimedActive, puzzle, timedConfig.penaltyMs, timedTransition])
 
   useEffect(() => {
     if (!isTimedOver || !reviewRef.current) return
@@ -707,8 +708,8 @@ function App() {
     const now = Date.now()
     if (timerDeadlineRef.current !== null) {
       timerDeadlineRef.current = Math.min(
-        timerDeadlineRef.current + TIMED_REWARD_MS,
-        now + TIMED_START_MS,
+        timerDeadlineRef.current + timedConfig.rewardMs,
+        now + timedConfig.startMs,
       )
     }
 
@@ -757,7 +758,17 @@ function App() {
     })
     invalidAttemptRef.current = null
     motionOriginRef.current = null
-  }, [board, boardHeight, dictionary, isTimedActive, puzzle, puzzleGraph, timedTransition])
+  }, [
+    board,
+    boardHeight,
+    dictionary,
+    isTimedActive,
+    puzzle,
+    puzzleGraph,
+    timedConfig.rewardMs,
+    timedConfig.startMs,
+    timedTransition,
+  ])
 
   useEffect(() => {
     if (!timedTransition) return
