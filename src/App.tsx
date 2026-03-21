@@ -19,6 +19,7 @@ import {
   type LadderGraph,
 } from './lib/ladder'
 import LadderSnapshot from './components/LadderSnapshot'
+import BrandBadge from './components/BrandBadge'
 import RunReviewLadder from './components/RunReviewLadder'
 import { getTimedConfig, type TimedConfig } from './lib/config'
 import {
@@ -1121,6 +1122,10 @@ function App() {
           </section>
         )}
       </main>
+
+      <footer className='app-footer'>
+        <BrandBadge />
+      </footer>
     </div>
   )
 }
