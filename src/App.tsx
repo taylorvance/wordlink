@@ -7,6 +7,7 @@ import {
   useState,
   type CSSProperties,
 } from 'react'
+import { BrandBadge } from '@taylorvance/tv-shared-ui'
 import {
   applyCellSelection,
   deriveBoardState,
@@ -19,7 +20,6 @@ import {
   type LadderGraph,
 } from './lib/ladder'
 import LadderSnapshot from './components/LadderSnapshot'
-import BrandBadge from './components/BrandBadge'
 import RunReviewLadder from './components/RunReviewLadder'
 import { getTimedConfig, type TimedConfig } from './lib/config'
 import {
@@ -1124,7 +1124,12 @@ function App() {
       </main>
 
       <footer className='app-footer'>
-        <BrandBadge />
+        <BrandBadge
+          className='brand-badge'
+          iconClassName='brand-badge-icon'
+          labelClassName='brand-badge-label'
+          unstyled
+        />
       </footer>
     </div>
   )

@@ -201,9 +201,23 @@
 }
 
 .brand-badge-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 16px;
   height: 16px;
+  flex: 0 0 auto;
+}
+
+.brand-badge-icon svg {
+  width: 100%;
+  height: 100%;
   display: block;
+}
+
+.brand-badge-label {
+  font-size: 0.84rem;
+  font-weight: 700;
 }
 
 .timed-hud {
