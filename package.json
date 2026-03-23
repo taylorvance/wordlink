@@ -17,13 +17,13 @@
     "debug:ladder": "tsx scripts/debug_ladder.ts"
   },
   "dependencies": {
-    "@taylorvance/tv-shared-ui": "^0.1.4",
+    "@taylorvance/tv-shared-ui": "^0.2.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
-    "@taylorvance/tv-shared-config": "^0.1.1",
     "@eslint/js": "^9.39.1",
+    "@taylorvance/tv-shared-config": "^0.1.1",
     "@types/node": "^24.10.4",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
