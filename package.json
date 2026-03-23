@@ -11,16 +11,18 @@
     "preview": "vite preview",
     "preprocess": "node scripts/preprocess.ts all",
     "build:dictionary": "tsx scripts/build_dictionary.ts",
-    "test": "vitest",
+    "test": "vitest --run",
     "test:watch": "vitest watch",
+    "verify": "npm run lint && npm run test && npm run build",
     "debug:ladder": "tsx scripts/debug_ladder.ts"
   },
   "dependencies": {
-    "@taylorvance/tv-shared-ui": "file:../tv-shared/packages/ui",
+    "@taylorvance/tv-shared-ui": "^0.1.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
+    "@taylorvance/tv-shared-config": "^0.1.1",
     "@eslint/js": "^9.39.1",
     "@types/node": "^24.10.4",
     "@types/react": "^19.2.5",

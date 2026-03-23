@@ -1,19 +1,17 @@
-name: Deploy
+name: CI
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
+  pull_request:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 jobs:
-  deploy:
-    uses: taylorvance/tv-shared/.github/workflows/deploy-pages.yml@main
+  verify:
+    uses: taylorvance/tv-shared/.github/workflows/verify.yml@main
     with:
       node-version: '22'
       working-directory: .
@@ -21,4 +19,3 @@ jobs:
       lint-command: npm run lint
       test-command: npm run test
       build-command: npm run build
-      artifact-path: dist
