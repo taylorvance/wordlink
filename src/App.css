@@ -18,11 +18,7 @@
 }
 
 .brand-mark {
-  margin: 0;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  color: var(--muted);
+  justify-self: start;
 }
 
 .controls {
@@ -163,17 +159,69 @@
   gap: 8px;
 }
 
+.status-banner {
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.status-banner.is-error {
+  border-color: var(--danger-soft);
+  background: color-mix(in srgb, var(--danger-soft) 18%, var(--surface));
+  color: var(--danger);
+}
+
 .app-footer {
   width: min(100%, 440px);
   display: flex;
   justify-content: center;
 }
 
+.wordlink-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.wordlink-logo-mark {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  display: block;
+}
+
+.wordlink-logo-copy {
+  display: grid;
+  gap: 0.16rem;
+  min-width: 0;
+}
+
+.wordlink-logo-name {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.02em;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.wordlink-logo-word {
+  color: var(--ink);
+}
+
+.wordlink-logo-link {
+  color: var(--brand-link);
+}
+
 .brand-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.45rem 0.8rem;
+  padding: 0.52rem 0.88rem;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: color-mix(in srgb, var(--surface) 92%, white 8%);

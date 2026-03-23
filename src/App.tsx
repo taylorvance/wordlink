@@ -17,11 +17,19 @@ import {
 import {
   generateRandomLadder,
   generateRandomLadderFromWord,
+  generateRandomLadderToWord,
+  solveLadder,
   type LadderGraph,
 } from './lib/ladder'
 import LadderSnapshot from './components/LadderSnapshot'
 import RunReviewLadder from './components/RunReviewLadder'
+import WordLinkLogo from './components/WordLinkLogo'
 import { getTimedConfig, type TimedConfig } from './lib/config'
+import {
+  getForcedPuzzleFromLocation,
+  stripForcedPuzzleParams,
+  type WordLength,
+} from './lib/forcedPuzzle'
 import {
   applyThemePreference,
   getInitialThemePreference,
@@ -30,8 +38,6 @@ import {
   type ThemePreference,
 } from './lib/theme'
 import './App.css'
-
-type WordLength = 3 | 4 | 5
 
 type GameMode = 'classic' | 'timed'
 type TimerState = 'normal' | 'warning' | 'danger'
@@ -202,8 +208,11 @@ function getTimerState(timeLeftMs: number, timedConfig: TimedConfig): TimerState
 }
 
 function App() {
+  const [forcedPuzzle, setForcedPuzzle] = useState(getForcedPuzzleFromLocation)
   const [mode, setMode] = useState<GameMode>('classic')
-  const [wordLength, setWordLength] = useState<WordLength>(4)
+  const [wordLength, setWordLength] = useState<WordLength>(
+    () => forcedPuzzle?.wordLength ?? 4,
+  )
   const [themePreference, setThemePreference] = useState<ThemePreference>(
     getInitialThemePreference,
   )
@@ -343,7 +352,70 @@ function App() {
     setTimedRun(null)
     setTimedTransition(null)
 
-    const nextPuzzle = createPuzzle(puzzleGraph)
+    let nextPuzzle = createPuzzle(puzzleGraph)
+
+    if (forcedPuzzle && forcedPuzzle.wordLength === wordLength) {
+      if (forcedPuzzle.startWord && forcedPuzzle.endWord) {
+        const forcedPath = solveLadder(
+          puzzleGraph,
+          forcedPuzzle.startWord,
+          forcedPuzzle.endWord,
+        )
+
+        if (!forcedPath) {
+          setError(
+            `Unable to force ladder ${forcedPuzzle.startWord.toUpperCase()} -> ${forcedPuzzle.endWord.toUpperCase()}.`,
+          )
+          setPuzzle(null)
+          return
+        }
+
+        nextPuzzle = {
+          endWord: forcedPuzzle.endWord,
+          selections: Array.from({ length: forcedPuzzle.wordLength }, () => null),
+          startWord: forcedPuzzle.startWord,
+        }
+      } else if (forcedPuzzle.startWord) {
+        const forcedPath = generateRandomLadderFromWord(
+          puzzleGraph,
+          forcedPuzzle.startWord,
+        )
+
+        if (!forcedPath) {
+          setError(
+            `Unable to find a ladder starting from ${forcedPuzzle.startWord.toUpperCase()}.`,
+          )
+          setPuzzle(null)
+          return
+        }
+
+        nextPuzzle = {
+          endWord: forcedPath.words[forcedPath.words.length - 1],
+          selections: Array.from({ length: forcedPuzzle.wordLength }, () => null),
+          startWord: forcedPuzzle.startWord,
+        }
+      } else if (forcedPuzzle.endWord) {
+        const forcedPath = generateRandomLadderToWord(
+          puzzleGraph,
+          forcedPuzzle.endWord,
+        )
+
+        if (!forcedPath) {
+          setError(
+            `Unable to find a ladder ending at ${forcedPuzzle.endWord.toUpperCase()}.`,
+          )
+          setPuzzle(null)
+          return
+        }
+
+        nextPuzzle = {
+          endWord: forcedPuzzle.endWord,
+          selections: Array.from({ length: forcedPuzzle.wordLength }, () => null),
+          startWord: forcedPath.words[0],
+        }
+      }
+    }
+
     if (!nextPuzzle) {
       setError('Unable to build a ladder. Try again.')
       setPuzzle(null)
@@ -352,7 +424,7 @@ function App() {
 
     setError(null)
     setPuzzle(nextPuzzle)
-  }, [puzzleGraph, resetBoardPresentation])
+  }, [forcedPuzzle, puzzleGraph, resetBoardPresentation, wordLength])
 
   const startTimedRun = useCallback(() => {
     if (!puzzleGraph) return
@@ -785,6 +857,8 @@ function App() {
   }, [timedTransition])
 
   const handleRefresh = () => {
+    clearForcedPuzzle()
+
     if (!puzzleGraph) return
 
     if (mode === 'timed') {
@@ -842,10 +916,30 @@ function App() {
     )
   }
 
+  const clearForcedPuzzle = useCallback(() => {
+    if (!forcedPuzzle || typeof window === 'undefined') return
+
+    const nextSearch = stripForcedPuzzleParams(window.location.search)
+    const nextUrl = `${window.location.pathname}${nextSearch}${window.location.hash}`
+
+    window.history.replaceState({}, '', nextUrl)
+    setForcedPuzzle(null)
+  }, [forcedPuzzle])
+
+  const handleModeChange = (nextMode: GameMode) => {
+    clearForcedPuzzle()
+    setMode(nextMode)
+  }
+
+  const handleWordLengthChange = (nextWordLength: WordLength) => {
+    clearForcedPuzzle()
+    setWordLength(nextWordLength)
+  }
+
   return (
     <div className='app-shell'>
       <header className='topbar'>
-        <p className='brand-mark'>WORDLINK</p>
+        <WordLinkLogo className='brand-mark' />
 
         <button
           type='button'
@@ -874,7 +968,7 @@ function App() {
                   name='game-mode'
                   value={option.value}
                   checked={mode === option.value}
-                  onChange={() => setMode(option.value as GameMode)}
+                  onChange={() => handleModeChange(option.value as GameMode)}
                 />
                 <span>{option.label}</span>
               </label>
@@ -890,7 +984,7 @@ function App() {
                   name='word-length'
                   value={len}
                   checked={wordLength === len}
-                  onChange={() => setWordLength(len as WordLength)}
+                  onChange={() => handleWordLengthChange(len as WordLength)}
                 />
                 <span>{len}</span>
               </label>
@@ -927,6 +1021,12 @@ function App() {
       </header>
 
       <main className='game-card'>
+        {error ? (
+          <section className='status-banner is-error' role='alert'>
+            {error}
+          </section>
+        ) : null}
+
         {isTimedMode && timedRun ? (
           <section className='timed-hud' aria-label='Timed run status'>
             <div

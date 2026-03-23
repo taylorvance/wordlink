@@ -214,6 +214,85 @@ export function generateRandomLadderFromWord(
   return createRandomLadderFromStartIndex(graph, startIndex, options);
 }
 
+export function generateRandomLadderToWord(
+  graph: LadderGraph,
+  endWord: string,
+  options: Pick<RandomLadderOptions, 'rng'> = {},
+): LadderPath | null {
+  const endIndex = findWordIndex(graph, endWord);
+  if (endIndex === -1) {
+    return null;
+  }
+
+  const wordLen = getWordLength(graph);
+  const fullMask = (1 << wordLen) - 1;
+  const rng = options.rng ?? Math.random;
+
+  type State = { idx: number; mask: number };
+
+  const key = (idx: number, mask: number) => `${idx}|${mask}`;
+  const visited = new Set<string>();
+  const nextStep = new Map<
+    string,
+    { nextIdx: number; nextMask: number; pos: number }
+  >();
+  const queue: State[] = [{ idx: endIndex, mask: fullMask }];
+  const startStates: State[] = [];
+
+  visited.add(key(endIndex, fullMask));
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+
+    if (current.mask === 0) {
+      startStates.push(current);
+      continue;
+    }
+
+    const neighborsByPos = graph.neighbors[current.idx];
+    if (!neighborsByPos) continue;
+
+    for (let pos = 0; pos < wordLen; pos++) {
+      if ((current.mask & (1 << pos)) === 0) continue;
+
+      const previousMask = current.mask & ~(1 << pos);
+
+      for (const previousIdx of neighborsByPos[pos]) {
+        const previousKey = key(previousIdx, previousMask);
+        if (visited.has(previousKey)) continue;
+
+        visited.add(previousKey);
+        nextStep.set(previousKey, {
+          nextIdx: current.idx,
+          nextMask: current.mask,
+          pos,
+        });
+        queue.push({ idx: previousIdx, mask: previousMask });
+      }
+    }
+  }
+
+  if (startStates.length === 0) {
+    return null;
+  }
+
+  const startState = startStates[Math.floor(rng() * startStates.length)];
+  const pathIndices: number[] = [startState.idx];
+  const positions: number[] = [];
+
+  let currentKey = key(startState.idx, startState.mask);
+  while (true) {
+    const currentStep = nextStep.get(currentKey);
+    if (!currentStep) break;
+
+    pathIndices.push(currentStep.nextIdx);
+    positions.push(currentStep.pos);
+    currentKey = key(currentStep.nextIdx, currentStep.nextMask);
+  }
+
+  return buildLadderPath(graph, pathIndices, positions);
+}
+
 function dfsRandomLadder(
   graph: LadderGraph,
   currentIndex: number,

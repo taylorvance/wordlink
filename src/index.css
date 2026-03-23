@@ -28,6 +28,10 @@
   --success-soft: rgba(83, 141, 78, 0.45);
   --success-glow: rgba(83, 141, 78, 0.2);
   --success-row: rgba(83, 141, 78, 0.4);
+  --brand-shell: #111922;
+  --brand-cream: #f8f1e3;
+  --brand-warm: #e9b664;
+  --brand-link: #4f86f7;
   --page-glow: rgba(79, 134, 247, 0.12);
   --page-haze: rgba(17, 17, 17, 0.05);
   --page-top: #f8f9fa;
@@ -59,6 +63,10 @@
   --success-soft: rgba(140, 207, 132, 0.5);
   --success-glow: rgba(140, 207, 132, 0.22);
   --success-row: rgba(140, 207, 132, 0.4);
+  --brand-shell: #111922;
+  --brand-cream: #f4efe5;
+  --brand-warm: #edbf76;
+  --brand-link: #76a7ff;
   --page-glow: rgba(72, 137, 255, 0.18);
   --page-haze: rgba(255, 255, 255, 0.05);
   --page-top: #151a1e;
