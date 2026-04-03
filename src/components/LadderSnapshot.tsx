@@ -48,9 +48,14 @@ function LadderSnapshot({
           >
             {Array.from({ length: puzzle.startWord.length }, (_, columnIndex) => {
               const letter = board.intermediateCells[index]?.[columnIndex] ?? "";
+              const isChangeCell =
+                board.effectiveChangeRows[columnIndex] === rowIndex;
 
               return (
-                <div className="tile" key={`snapshot-cell-${rowIndex}-${columnIndex}`}>
+                <div
+                  className={`tile ${isChangeCell ? "is-change-cell" : ""}`}
+                  key={`snapshot-cell-${rowIndex}-${columnIndex}`}
+                >
                   {letter}
                 </div>
               );

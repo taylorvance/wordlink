@@ -94,6 +94,21 @@ const FLOW_STAGGER_MS = 70
 const TIMED_TRANSITION_MS = 420
 // Require a little onward variety so timed runs do not dead-end immediately.
 const TIMED_MIN_RUNWAY_LADDERS = 50
+const HELP_EXAMPLE_PUZZLE: Puzzle = {
+  startWord: 'word',
+  endWord: 'link',
+  selections: [null, 3, 2, 1],
+}
+const HELP_EXAMPLE_BOARD = deriveBoardState(
+  HELP_EXAMPLE_PUZZLE.startWord,
+  HELP_EXAMPLE_PUZZLE.endWord,
+  HELP_EXAMPLE_PUZZLE.selections,
+  new Set(['work', 'wonk', 'wink']),
+)
+const HELP_EXAMPLE_BOARD_STYLE = {
+  '--letters': HELP_EXAMPLE_PUZZLE.startWord.length,
+  '--tile-size': '2.5rem',
+} as CSSProperties
 
 function getCellMotion(
   originRow: number,
@@ -220,6 +235,7 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [puzzle, setPuzzle] = useState<Puzzle | null>(null)
+  const [isHelpOpen, setIsHelpOpen] = useState(false)
   const [timedRun, setTimedRun] = useState<TimedRunState | null>(null)
   const [timedTransition, setTimedTransition] = useState<TimedTransition | null>(
     null,
@@ -237,6 +253,7 @@ function App() {
   const timerDeadlineRef = useRef<number | null>(null)
   const invalidAttemptRef = useRef<string | null>(null)
   const liveBoardRef = useRef<HTMLDivElement | null>(null)
+  const helpCloseButtonRef = useRef<HTMLButtonElement | null>(null)
   const reviewRef = useRef<HTMLDivElement | null>(null)
 
   const puzzleGraph = puzzleData?.puzzleGraph ?? null
@@ -578,6 +595,28 @@ function App() {
   }, [themePreference])
 
   useEffect(() => {
+    if (!isHelpOpen) return
+
+    helpCloseButtonRef.current?.focus()
+
+    const { overflow } = document.body.style
+    document.body.style.overflow = 'hidden'
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsHelpOpen(false)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.body.style.overflow = overflow
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isHelpOpen])
+
+  useEffect(() => {
     let cancelled = false
 
     const loadPuzzleData = async () => {
@@ -916,6 +955,14 @@ function App() {
     )
   }
 
+  const openHelp = () => {
+    setIsHelpOpen(true)
+  }
+
+  const closeHelp = () => {
+    setIsHelpOpen(false)
+  }
+
   const clearForcedPuzzle = useCallback(() => {
     if (!forcedPuzzle || typeof window === 'undefined') return
 
@@ -941,19 +988,31 @@ function App() {
       <header className='topbar'>
         <WordLinkLogo className='brand-mark' />
 
-        <button
-          type='button'
-          className='theme-cycle-button'
-          onClick={handleThemeCycle}
-          aria-label={`Theme: ${getThemeButtonLabel(themePreference)}. Change theme.`}
-          title={`Theme: ${getThemeButtonLabel(themePreference)}`}
-        >
-          {themePreference === 'system'
-            ? '◐'
-            : themePreference === 'light'
-              ? '☀'
-              : '☾'}
-        </button>
+        <div className='topbar-actions'>
+          <button
+            type='button'
+            className='help-button'
+            onClick={openHelp}
+            aria-label='How to play'
+            title='How to play'
+          >
+            ?
+          </button>
+
+          <button
+            type='button'
+            className='theme-cycle-button'
+            onClick={handleThemeCycle}
+            aria-label={`Theme: ${getThemeButtonLabel(themePreference)}. Change theme.`}
+            title={`Theme: ${getThemeButtonLabel(themePreference)}`}
+          >
+            {themePreference === 'system'
+              ? '◐'
+              : themePreference === 'light'
+                ? '☀'
+                : '☾'}
+          </button>
+        </div>
 
         <div className='controls'>
           <fieldset className='mode-picker'>
@@ -1222,6 +1281,63 @@ function App() {
           </section>
         )}
       </main>
+
+      {isHelpOpen ? (
+        <div
+          className='help-modal-backdrop'
+          onClick={closeHelp}
+          role='presentation'
+        >
+          <section
+            className='help-modal'
+            role='dialog'
+            aria-modal='true'
+            aria-labelledby='help-modal-title'
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className='help-modal-header'>
+              <div>
+                <p className='help-modal-eyebrow'>Quick guide</p>
+                <h2 className='help-modal-title' id='help-modal-title'>
+                  Build the ladder one change at a time
+                </h2>
+              </div>
+
+              <button
+                ref={helpCloseButtonRef}
+                type='button'
+                className='help-close-button'
+                onClick={closeHelp}
+                aria-label='Close help'
+              >
+                x
+              </button>
+            </div>
+
+            <div className='help-example' aria-label='Example ladder'>
+              <p className='help-example-label'>Example</p>
+              <LadderSnapshot
+                board={HELP_EXAMPLE_BOARD}
+                boardStyle={HELP_EXAMPLE_BOARD_STYLE}
+                puzzle={HELP_EXAMPLE_PUZZLE}
+              />
+            </div>
+
+            <div className='help-points'>
+              <p>Each row changes one letter from the word above it.</p>
+              <p>Each column changes exactly once.</p>
+              <p>
+                Tap where a column switches from the start word to the end word.
+                The board fills the implied letters for you.
+              </p>
+              <p>
+                In timed mode, invalid words cost time and completed ladders add
+                time.
+              </p>
+            </div>
+          </section>
+        </div>
+      ) : null}
 
       <footer className='app-footer'>
         <BrandBadge
