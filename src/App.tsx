@@ -7,7 +7,7 @@ import {
   useState,
   type CSSProperties,
 } from 'react'
-import { BrandBadge } from '@taylorvance/tv-shared-ui/BrandBadge'
+import { BrandBadge } from '@taylorvance/tv-shared-web/BrandBadge'
 import {
   applyCellSelection,
   deriveBoardState,

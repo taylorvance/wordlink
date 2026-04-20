@@ -4,37 +4,44 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "clean": "rm -rf node_modules dist coverage .vite .eslintcache *.tsbuildinfo",
     "dev": "vite --host",
     "build": "tsc -b && npm run preprocess && vite build",
-    "lint": "eslint .",
+    "verify": "npm run lint && npm run test && npm run build",
+    "verify:push": "npm run verify",
+    "prepare": "simple-git-hooks",
+    "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "preprocess": "node scripts/preprocess.ts all",
     "build:dictionary": "tsx scripts/build_dictionary.ts",
     "test": "vitest --run",
     "test:watch": "vitest watch",
-    "verify": "npm run lint && npm run test && npm run build",
     "debug:ladder": "tsx scripts/debug_ladder.ts"
   },
   "dependencies": {
-    "@taylorvance/tv-shared-ui": "^0.2.0",
+    "@taylorvance/tv-shared-web": "^0.7.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
+  "simple-git-hooks": {
+    "pre-commit": "npx lint-staged",
+    "pre-push": "npm run verify:push"
+  },
+  "lint-staged": {
+    "*.{js,mjs,cjs,ts,tsx}": "eslint --fix"
+  },
   "devDependencies": {
-    "@eslint/js": "^9.39.1",
-    "@taylorvance/tv-shared-config": "^0.1.1",
+    "@taylorvance/tv-shared-dev": "^0.1.1",
     "@types/node": "^24.10.4",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react-swc": "^4.2.2",
     "@vitest/coverage-v8": "^4.0.16",
     "eslint": "^9.39.1",
-    "eslint-plugin-react-hooks": "^7.0.1",
-    "eslint-plugin-react-refresh": "^0.4.24",
-    "globals": "^16.5.0",
+    "lint-staged": "^16.4.0",
+    "simple-git-hooks": "^2.13.1",
     "tsx": "^4.21.0",
     "typescript": "~5.9.3",
-    "typescript-eslint": "^8.46.4",
     "vite": "^7.2.4",
     "vitest": "^4.0.16"
   }
