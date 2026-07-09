@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   verify:
-    uses: taylorvance/tv-shared/.github/workflows/verify.yml@v1
+    uses: taylorvance/tv-shared/.github/workflows/verify.yml@v1.1.0
     with:
       node-version: '22'
       working-directory: .
